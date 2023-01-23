@@ -33,14 +33,15 @@ local theme = {
 local function make_draggable(pivot, core)
     local connection
     pivot.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and not connection then
             local last_position = userinputservice:GetMouseLocation()
             connection = runservice.RenderStepped:Connect(function()
-                local change = (userinputservice:GetMouseLocation() - last_position)
-                last_position = userinputservice:GetMouseLocation()
+                local current_position = userinputservice:GetMouseLocation()
+                local change = (current_position - last_position)
                 if change.Magnitude ~= 0 then
-                    local new_position = core.Position + UDim2.fromOffset(change.X, change.Y)
-                    tweenservice:Create(core, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {Position = new_position}):Play()
+                    last_position = current_position
+                    local core_position = core.Position + UDim2.fromOffset(change.X, change.Y)
+                    tweenservice:Create(core, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {Position = core_position}):Play()
                 end
             end)
         end
@@ -60,8 +61,6 @@ local library = {}
 --# orange ass cum
 
 function library.CreateWindow(name)
-    name = tostring(name) or "plue-lib"
-
     for _, v in ipairs(library_holder:GetChildren()) do
         if v.Name == name then
             v:Destroy()
@@ -69,66 +68,77 @@ function library.CreateWindow(name)
     end
 
     local gui = assets.Window.GUI:Clone()
-    local core = gui.Main
-    local window = core.Window
-    local topbar = window.Bar
-    local menu = window.Menu
+    local core = gui.Core
+    local main = core.Main
+    local topbar = main.Bar
+    local menu = main.Menu
     local tablist = menu.Tabs
-    local tabholder = window.TabHolder
+    local tabholder = main.TabHolder
 
     gui.Name = name
     topbar.Title.Text = name
     gui.Parent = library_holder
     pcall(make_draggable, topbar, core)
 
-    --# nigga cum
+    --# cool seperator
 
-    local self = {}
+    local current_tab , current_tab_button , tab_debounce = nil, nil , true
 
-    --# tab
-
-    local current_tab
-    local change_tab_debounce = true
-
-    local function change_tab(tab)
-        if change_tab_debounce then
-            change_tab_debounce = false
-            local previous_tab = current_tab
-            current_tab = tab
-            local appear_tween = tweenservice:Create(tab, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {GroupTransparency = 0})
-            appear_tween.Completed:Connect(function()
-                change_tab_debounce = true
-            end)
+    local function change_tab(tab, button, instant)
+        if instant then
+            current_tab, current_tab_button = tab, button
+            for _, v in ipairs(tabholder:GetChildren()) do
+                v.Visible = false
+                v.GroupTransparency = 1
+            end
+            for _, v in ipairs(tablist:GetChildren()) do
+                v.TextColor3 = theme.tab.button_default
+            end
+            tab.Visible = true
+            tab.GroupTransparency = 0
+            button.TextColor3 = theme.tab.button_selected
+        elseif tab_debounce then
+            local previous_tab, previous_tab_button = current_tab, current_tab_button
+            current_tab, current_tab_button = tab, button
+            local appear_tween = tweenservice:Create(tab, TweenInfo.new(.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {GroupTransparency = 0})
             if previous_tab then
+                tab_debounce = false
                 local disappear_tween = tweenservice:Create(previous_tab, TweenInfo.new(.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {GroupTransparency = 1})
                 disappear_tween.Completed:Connect(function()
                     previous_tab.Visible = false
                     tab.Visible = true
                     appear_tween:Play()
+                    tab_debounce = true
                 end)
+                tweenservice:Create(previous_tab, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {TextColor3 = theme.tab.button_default}):Play()
                 disappear_tween:Play()
             else
                 tab.Visible = true
                 appear_tween:Play()
             end
+            tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {TextColor3 = theme.tab.button_selected}):Play()
         end
     end
 
-    function self.CreateTab(title)
+    --# nigga cum
 
-        --# create visual
+    local window_functions = {}
+
+    function window_functions.CreateTab(name)
+
+        --# setup
 
         local tab = assets.Window.Tab:Clone()
         local button = assets.Window.TabButton:Clone()
-        button.Text = title
-        button.Name = title
-        tab.Name = title
+        button.Text = name
+        button.Name = name
+        tab.Name = name
         if not current_tab then
-            change_tab(tab)
+            change_tab(tab, button, true)
         end
         button.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                change_tab(tab)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 and current_tab ~= tab then
+                change_tab(tab, button)
             end
         end)
         button.Parent = tablist
@@ -136,11 +146,13 @@ function library.CreateWindow(name)
         
         --# self
 
-        local tab_self = {}
+        local tab_functions = {}
+
+        --# [elements]
 
         --# section
 
-        function tab_self.CreateSection(name)
+        function tab_functions.CreateSection(name)
             local section = assets.Elements.Section:Clone()
             section.Name = name
             section.Text = name
@@ -161,7 +173,7 @@ function library.CreateWindow(name)
             "Callback" = <function>
         ]]
 
-        function tab_self.CreateButton(settings)
+        function tab_functions.CreateButton(settings)
             --# setup
             local button = assets.Elements.Button:Clone()
             button.Parent = tab
@@ -239,7 +251,7 @@ function library.CreateWindow(name)
             "StartValue" = <boolean>
         ]]
 
-        function tab_self.CreateToggle(settings)
+        function tab_functions.CreateToggle(settings)
             --# setup
             local toggle = assets.Elements.Toggle:Clone()
             local checkbox = toggle.CheckBox
@@ -338,10 +350,10 @@ function library.CreateWindow(name)
         ]]
 
 
-        function tab_self.CreateSlider(settings)
+        function tab_functions.CreateSlider(settings)
             --# setup
             local slider = assets.Elements.Slider:Clone()
-            local main : Frame = slider.Main
+            local main = slider.Main
             local bar = main.Bar
             local progress_label = main.Progress
             slider.Parent = tab
@@ -362,7 +374,7 @@ function library.CreateWindow(name)
                 end
             end)
             local dragging, progress, connection = false, settings.StartValue, nil
-            bar.Size = UDim2.new(0, main.Size.X.Offset * (progress / math.abs(settings.Range[2] - settings.Range[1])), 1, 0)
+            bar.Size = UDim2.new(0, main.AbsoluteSize.X * (progress / math.abs(settings.Range[2] - settings.Range[1])), 1, 0)
             progress_label.Text = progress .. " " .. settings.Suffix or ""
 
             --# nigger
@@ -432,37 +444,49 @@ function library.CreateWindow(name)
                     dragging = false
                 end
             end)
-            return {
-                Destroy = function()
-                    slider:Destroy()
-                end,
-                Set = function(value)
-                    progress = value
-                    bar.Size = UDim2.new(0, main.Size.X.Offset * (progress / math.abs(settings.Range[2] - settings.Range[1])), 1, 0)
-                    progress_label.Text = progress .. " " .. settings.Suffix or ""
-                    task.defer(call_callback)
-                end
-            }
+
+            local slider_functions = {}
+
+            function slider_functions.Set(value)
+                progress = value
+                bar.Size = UDim2.new(0, main.Size.X.Offset * (progress / math.abs(settings.Range[2] - settings.Range[1])), 1, 0)
+                progress_label.Text = progress .. " " .. settings.Suffix or ""
+                task.defer(call_callback)
+            end
+
+            function slider_functions.Destroy()
+                slider:Destroy()
+            end
+
+            return slider_functions
         end
 
         --# destroy
 
-        function tab_self.Destroy()
+        function tab_functions.Destroy()
             button:Destroy()
             tab:Destroy()
             if current_tab == tab then
                 current_tab = nil
-                local random_tab = tabholder:GetChildren()[math.random(#tabholder:GetChildren())]
+                local all_tabs = tabholder:GetChildren()
+                local random_tab = all_tabs[math.random(#all_tabs)]
                 if random_tab then
-                    change_tab(random_tab)
+                    local random_tab_button = tablist:FindFirstChild(random_tab.Name)
+                    if random_tab_button then
+                        change_tab(random_tab, random_tab_button, true)
+                    end
                 end
             end
         end
 
-        return tab_self
+        return tab_functions
     end
 
-    return self
+    function window_functions.Destroy()
+        gui:Destroy()
+    end
+
+    return window_functions
 end
 
 --# end of cum
