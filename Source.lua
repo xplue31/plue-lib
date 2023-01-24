@@ -157,11 +157,14 @@ function library.CreateWindow(name)
             section.Name = name
             section.Text = name
             section.Parent = tab
-            return {
-                Destroy = function()
-                    section:Destroy()
-                end,
-            }
+
+            local section_functions = {}
+
+            function section_functions.Destroy()
+                section:Destroy()
+            end
+
+            return section_functions
         end
 
         --# button
@@ -217,28 +220,32 @@ function library.CreateWindow(name)
                     end
                 end
             end)
-            return {
-                Destroy = function()
-                    button:Destroy()
-                end,
-                Click = function()
-                    local success, message = pcall(settings.Callback)
-                    if not success then
-                        debounce = false
-                        button.Text = "Callback Error"
-                        warn("plue-lib Callback Error:", message)
-                        tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.error_color}):Play()
-                        task.wait(2)
-                        button.Text = settings.Name
-                        debounce = true
-                        if hovering then
-                            tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.hover_color}):Play()
-                        else
-                            tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.default_color}):Play()
-                        end
+
+            local button_functions = {}
+
+            function button_functions.Destroy()
+                button:Destroy()
+            end
+
+            function button_functions.Click()
+                local success, message = pcall(settings.Callback)
+                if not success then
+                    debounce = false
+                    button.Text = "Callback Error"
+                    warn("plue-lib Callback Error:", message)
+                    tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.error_color}):Play()
+                    task.wait(2)
+                    button.Text = settings.Name
+                    debounce = true
+                    if hovering then
+                        tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.hover_color}):Play()
+                    else
+                        tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.default_color}):Play()
                     end
                 end
-            }
+            end
+
+            return button_functions
         end
 
         --# toggle
@@ -322,18 +329,21 @@ function library.CreateWindow(name)
                 end
             end)
 
-            return {
-                Destroy = function()
-                    toggle:Destroy()
-                end,
-                Set = function(value)
-                    task.defer(function()
-                        local success = call_callback(value)
-                        if not success then
-                        end
-                    end)
-                end
-            }
+            local toggle_functions = {}
+
+            function toggle_functions.Destroy()
+                toggle:Destroy()
+            end
+
+            function toggle_functions.Set(value)
+                task.defer(function()
+                    local success = call_callback(value)
+                    if not success then
+                    end
+                end)
+            end
+
+            return toggle_functions
         end
 
         --# slider
