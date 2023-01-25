@@ -35,27 +35,33 @@ local theme = {
 --# white ass cum
 
 local function make_draggable(pivot, core)
-    local connection
-    pivot.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 and not connection then
-            local last_position = userinputservice:GetMouseLocation()
-            connection = runservice.RenderStepped:Connect(function()
-                local current_position = userinputservice:GetMouseLocation()
-                local change = (current_position - last_position)
-                if change.Magnitude ~= 0 then
-                    last_position = current_position
-                    local core_position = core.Position + UDim2.fromOffset(change.X, change.Y)
-                    tweenservice:Create(core, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {Position = core_position}):Play()
-                end
-            end)
-        end
-    end)
-    pivot.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 and connection then
-            connection:Disconnect()
-            connection = nil
-        end
-    end)
+    pcall(function()
+		local Dragging, DragInput, MousePos, FramePos = false
+		pivot.InputBegan:Connect(function(Input)
+			if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+				Dragging = true
+				MousePos = Input.Position
+				FramePos = core.Position
+
+				Input.Changed:Connect(function()
+					if Input.UserInputState == Enum.UserInputState.End then
+						Dragging = false
+					end
+				end)
+			end
+		end)
+		pivot.InputChanged:Connect(function(Input)
+			if Input.UserInputType == Enum.UserInputType.MouseMovement then
+				DragInput = Input
+			end
+		end)
+		userinputservice.InputChanged:Connect(function(Input)
+			if Input == DragInput and Dragging then
+				local Delta = Input.Position - MousePos
+				tweenservice:Create(core, TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position  = UDim2.new(FramePos.X.Scale,FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)}):Play()
+			end
+		end)
+	end)
 end
 
 --# purple cum maybe
@@ -76,13 +82,33 @@ function library.CreateWindow(name)
     local main = core.Main
     local topbar = main.Bar
     local menu = main.Menu
+    local menu_button = topbar.MenuButton
     local tablist = menu.Tabs
     local tabholder = main.TabHolder
 
+    gui.Enabled = true
     gui.Name = name
     topbar.Title.Text = name
     gui.Parent = library_holder
     pcall(make_draggable, topbar, core)
+
+    --# general buttons
+
+    local menu_tweens = {
+        [true] = tweenservice:Create(menu, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {Position = menu.Position}),
+        [false] = tweenservice:Create(menu, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {Position = menu.Position - UDim2.fromOffset(menu.AbsoluteSize.X + 1, 0)})
+    }
+
+    local menu_toggled = true
+
+    local function toggle_menu()
+        menu_tweens[menu_toggled]:Play()
+    end
+
+    menu_button.Activated:Connect(function()
+        menu_toggled = not menu_toggled
+        toggle_menu()
+    end)
 
     --# cool seperator
 
@@ -92,11 +118,15 @@ function library.CreateWindow(name)
         if instant then
             current_tab, current_tab_button = tab, button
             for _, v in ipairs(tabholder:GetChildren()) do
-                v.Visible = false
-                v.GroupTransparency = 1
+                if v.ClassName == "CanvasGroup" then
+                    v.Visible = false
+                    v.GroupTransparency = 1
+                end
             end
             for _, v in ipairs(tablist:GetChildren()) do
-                v.TextColor3 = theme.tab.button_default
+                if v.ClassName == "TextLabel" then
+                    v.TextColor3 = theme.tab.button_default
+                end
             end
             tab.Visible = true
             tab.GroupTransparency = 0
@@ -104,23 +134,23 @@ function library.CreateWindow(name)
         elseif tab_debounce then
             local previous_tab, previous_tab_button = current_tab, current_tab_button
             current_tab, current_tab_button = tab, button
-            local appear_tween = tweenservice:Create(tab, TweenInfo.new(.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {GroupTransparency = 0})
+            local appear_tween = tweenservice:Create(tab, TweenInfo.new(.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {GroupTransparency = 0})
             if previous_tab then
                 tab_debounce = false
-                local disappear_tween = tweenservice:Create(previous_tab, TweenInfo.new(.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {GroupTransparency = 1})
+                local disappear_tween = tweenservice:Create(previous_tab, TweenInfo.new(.25, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {GroupTransparency = 1})
                 disappear_tween.Completed:Connect(function()
                     previous_tab.Visible = false
                     tab.Visible = true
                     appear_tween:Play()
                     tab_debounce = true
                 end)
-                tweenservice:Create(previous_tab, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {TextColor3 = theme.tab.button_default}):Play()
+                tweenservice:Create(previous_tab, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = theme.tab.button_default}):Play()
                 disappear_tween:Play()
             else
                 tab.Visible = true
                 appear_tween:Play()
             end
-            tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {TextColor3 = theme.tab.button_selected}):Play()
+            tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = theme.tab.button_selected}):Play()
         end
     end
 
@@ -625,4 +655,4 @@ end
 
 --# end of cum
 
-return {}
+return library
