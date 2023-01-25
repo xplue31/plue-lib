@@ -452,7 +452,7 @@ function library.CreateWindow(name)
 
             --# core
 
-            local hovering, sliding, progress, range, min_value, max_value, debounce = false, false, settings.StartValue, math.abs(settings.Range[1] - settings.Range[2]), math.min(unpack(settings.Range)), math.max(unpack(settings.Range)), true
+            local hovering, sliding, progress, range, min_value, max_value, debounce = false, false, math.floor(settings.StartValue / settings.Increment) * settings.Increment, math.abs(settings.Range[1] - settings.Range[2]), math.min(unpack(settings.Range)), math.max(unpack(settings.Range)), true
 
             --# tween and coloring stuff
 
@@ -476,9 +476,12 @@ function library.CreateWindow(name)
             --# callback stufff
 
             local function attempt_callback()
-                local success, message = pcall(settings.Callback)
+                local success, message = pcall(settings.Callback, progress)
                 if not success then
                     debounce = false
+                    if sliding then
+                        sliding = false
+                    end
                     button.Text = "Callback Error"
                     warn("plue-lib Callback Error:", message)
                     tweens.error:Play()
@@ -488,6 +491,14 @@ function library.CreateWindow(name)
                     debounce = true
                 end
                 return success
+            end
+
+            local function update_progress(value)
+                if value ~= progress then
+                    progress = value
+                    progress_label.Text = tostring(progress) .. " " .. settings.Suffix or ""
+                    attempt_callback()
+                end
             end
 
             --# connection callbacks
@@ -515,69 +526,74 @@ function library.CreateWindow(name)
 
                     --# bla bla stuff right now bro?
 
-                    local start_mouse_x = userinputservice:GetMouseLocation().X
-                    local last_mouse_x = start_mouse_x
+                    local last_mouse_x = userinputservice:GetMouseLocation().X
 
-                    local bar_size = (start_mouse_x - main.AbsolutePosition.X - main.AbsoluteSize.X)
-
-                    local ratio = bar_size / main.AbsoluteSize.X
-                    local absolute_progress = (ratio * range)
-
-                    
+                    do
+                        local x_progress = last_mouse_x - bar.AbsolutePosition.X
+                        tweenservice:Create(bar, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
+    
+                        local new_progress = math.floor(((x_progress / main.AbsoluteSize.X) * range) / settings.Increment) * settings.Increment
+                        update_progress(new_progress)
+                    end
 
                     local connection; connection = runservice.RenderStepped:Connect(function()
                         if sliding then
                             local current_mouse_x = userinputservice:GetMouseLocation().X
-                            local frame_mouse_x_difference = (current_mouse_x - last_mouse_x)
-                            if frame_mouse_x_difference ~= 0 then
+                            local mouse_x_delta = (current_mouse_x - last_mouse_x)
+                            if mouse_x_delta ~= 0 then
                                 last_mouse_x = current_mouse_x
-                                local total_mouse_x_difference = (current_mouse_x - start_mouse_x)
+
+                                local x_progress = current_mouse_x - bar.AbsolutePosition.X
+                                tweenservice:Create(bar, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
+
+                                local new_progress = math.floor(((x_progress / main.AbsoluteSize.X) * range) / settings.Increment) * settings.Increment
+                                update_progress(new_progress)
                             end
                         else
                             connection:Disconnect()
                         end
                     end)
-
-                    while sliding and runservice.RenderStepped:Wait() do
-                        local current_mouse_x = userinputservice:GetMouseLocation().X
-                        local difference = (current_mouse_x - last_mouse_x)
-                        if difference ~= 0 then
-                            
-                        end
-                    end
                 end
             end
 
             local function on_input_ended(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 and hovering then
                     sliding = false
-                    if debounce then
-                        tweens.hover:Play()
-                    end
                 end
             end
 
             --# connections
 
-            button.MouseEnter:Connect(on_mouse_enter)
-            button.MouseLeave:Connect(on_mouse_leave)
-            button.InputBegan:Connect(on_input_began)
-            button.InputEnded:Connect(on_input_ended)
+            main.MouseEnter:Connect(on_mouse_enter)
+            main.MouseLeave:Connect(on_mouse_leave)
+            main.InputBegan:Connect(on_input_began)
+            main.InputEnded:Connect(on_input_ended)
 
             --# functions
 
-            local button_functions = {}
+            local slider_functions = {}
 
-            function button_functions.Click()
-                task.spawn(attempt_callback)
+            function slider_functions.Set(value)
+                local x_progress = (value / range) * main.AbsoluteSize.X
+                tweenservice:Create(bar, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
+                update_progress(value)
             end
 
-            function button_functions.Destroy()
-                button:Destroy()
+            function slider_functions.Destroy()
+                if sliding then
+                    sliding = false
+                end
+                slider:Destroy()
             end
 
-            return button_functions
+            return slider_functions
         end
+
+        --# dropdown
+        
+        --# notification
+
+        --# prompt
 
         --# destroy
 
