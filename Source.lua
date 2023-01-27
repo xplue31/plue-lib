@@ -155,8 +155,8 @@ function library.CreateWindow(name)
 
         --# changing tabs
 
-        button.Activated:Connect(function()
-            if current_tab ~= tab then
+        button.InputBegan:Connect(function(input)
+            if current_tab ~= tab and input.UserInputType == Enum.UserInputType.MouseButton1 then
                 change_tab(tab, button)
             end
         end)
@@ -199,15 +199,17 @@ function library.CreateWindow(name)
         function tab_functions.CreateLabel(text)
             local label = assets.Elements.Label:Clone()
 
+            label:GetPropertyChangedSignal("TextBounds"):Connect(function()
+                label.Size = UDim2.new(label.Size.X, UDim.new(0, label.TextBounds.Y))
+            end)
+
             label.Text = text
-            label.Size = UDim2.new(label.Size.X, UDim.new(0, label.TextBounds.Y))
             label.Parent = element_holder
 
             local label_functions = {}
 
             function label_functions.Set(text)
                 label.Text = text
-                label.Size = UDim2.new(label.Size.X, UDim.new(0, label.TextBounds.Y))
             end
 
             function label_functions.Destroy()
@@ -222,15 +224,17 @@ function library.CreateWindow(name)
         function tab_functions.CreateWarning(text)
             local warning = assets.Elements.Warning:Clone()
 
+            warning:GetPropertyChangedSignal("TextBounds"):Connect(function()
+                warning.Size = UDim2.new(warning.Size.X, UDim.new(0, warning.TextBounds.Y))
+            end)
+
             warning.Text = text
-            warning.Size = UDim2.new(warning.Size.X, UDim.new(0, warning.TextBounds.Y))
             warning.Parent = element_holder
 
             local warning_functions = {}
 
             function warning_functions.Set(text)
                 warning.Text = text
-                warning.Size = UDim2.new(warning.Size.X, UDim.new(0, warning.TextBounds.Y))
             end
 
             function warning_functions.Destroy()
@@ -522,7 +526,11 @@ function library.CreateWindow(name)
 
             --# core
 
-            local hovering, sliding, progress, range, min_value, max_value, debounce = false, false, math.floor(settings.StartValue / settings.Increment) * settings.Increment, math.abs(settings.Range[1] - settings.Range[2]), math.min(unpack(settings.Range)), math.max(unpack(settings.Range)), true
+            local hovering, sliding, progress, range, min_value, max_value, debounce = false, false, math.round(settings.StartValue / settings.Increment) * settings.Increment, math.abs(settings.Range[1] - settings.Range[2]), math.min(unpack(settings.Range)), math.max(unpack(settings.Range)), true
+
+            --# quick seup too
+
+            progress_label.Text = tostring(progress) .. " " .. settings.Suffix or ""
 
             --# tween and coloring stuff
 
@@ -591,7 +599,7 @@ function library.CreateWindow(name)
                         local x_progress = math.clamp(last_mouse_x - bar.AbsolutePosition.X, 0, main.AbsoluteSize.X)
                         tweenservice:Create(bar, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
     
-                        local new_progress = math.floor(((x_progress / main.AbsoluteSize.X) * range) / settings.Increment) * settings.Increment
+                        local new_progress = math.clamp(math.round(((x_progress / main.AbsoluteSize.X) * range) / settings.Increment) * settings.Increment, min_value, max_value)
                         update_progress(new_progress)
                     end
 
@@ -605,7 +613,7 @@ function library.CreateWindow(name)
                                 local x_progress = math.clamp(current_mouse_x - bar.AbsolutePosition.X, 0, main.AbsoluteSize.X)
                                 tweenservice:Create(bar, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
 
-                                local new_progress = math.floor(((x_progress / main.AbsoluteSize.X) * range) / settings.Increment) * settings.Increment
+                                local new_progress = math.clamp(math.round(((x_progress / main.AbsoluteSize.X) * range) / settings.Increment) * settings.Increment, min_value, max_value)
                                 update_progress(new_progress)
                             end
                         else
@@ -683,5 +691,45 @@ function library.CreateWindow(name)
 end
 
 --# end of cum
+
+--# test
+
+local window = library.CreateWindow("cum")
+local tab1, tab2, tab3 = window.CreateTab("gay porn"), window.CreateTab("movies"), window.CreateTab("nigger stuff")
+tab1.CreateSection("nigger point")
+tab1.CreateButton({
+    Name = "Cum Activator",
+    Callback = function()
+        print("You've been cummed!")
+    end
+}
+)
+tab1.CreateSection("cum point")
+tab1.CreateLabel("abone olun like atın teşekkür ederim ben kaynia emir kaya 10 izleniyorum")
+tab1.CreateSlider({
+    Name = "Noob Count",
+    Suffix = "Noobs",
+    Range = {1, 100},
+    StartValue = 50,
+    Increment = 1.5,
+    Callback = function(value)
+        warn("Congrats with your", value, "Noobs Retard")
+    end
+})
+
+tab2.CreateWarning("Allah bir varmış bir yokmuş, desem günah olurdu ama bu adam türk olsa severdiniz")
+tab2.CreateToggle({
+    Name = "Cum Mode",
+    StartValue = false,
+    Callback = function(v)
+        warn("Your cum mode is now:", v)
+    end
+})
+
+tab2.CreateWarning("QWDKIOQWDKOPQWKD OQWD OPQWOKD QWOD JKQWIJD IQWJD JIQWD JQWIODJ IQWD JIQWD JQWP IODJQW")
+
+task.delay(7, tab1.Destroy)
+
+--# brav
 
 return library
