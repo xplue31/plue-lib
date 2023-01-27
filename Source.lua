@@ -133,6 +133,7 @@ function library.CreateWindow(name)
 
         local tab = assets.Window.Tab:Clone()
         local element_holder = tab.Main
+        local list_layout : UIListLayout = element_holder.UIListLayout
 
         local button = assets.Window.TabButton:Clone()
 
@@ -144,14 +145,26 @@ function library.CreateWindow(name)
         tab.Visible = false
         tab.Parent = tabholder
 
+        element_holder.CanvasSize = UDim2.fromOffset(0, list_layout.AbsoluteContentSize)
+
+        --# check if a tab exist
+
         if not current_tab then
             change_tab(tab, button)
         end
+
+        --# changing tabs
 
         button.Activated:Connect(function()
             if current_tab ~= tab then
                 change_tab(tab, button)
             end
+        end)
+
+        --# some scaling stuff
+
+        list_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            element_holder.CanvasSize = UDim2.fromOffset(0, list_layout.AbsoluteContentSize)
         end)
         
         --# functions
@@ -247,19 +260,19 @@ function library.CreateWindow(name)
 
             --# core
 
-            local hovering, clicking, debounce = false, false, true
+            local hovering, mouse_down, debounce = false, false, true
 
             --# tween and coloring stuff
 
             local tweens = {
                 default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
                 hover = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}),
-                interact = tweenservice:Create(button, TweenInfo.new(.05, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
+                interact = tweenservice:Create(button, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
                 error = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
             }
 
-            local function reset()
-                if clicking then
+            local function reset_tween()
+                if mouse_down then
                     tweens.interact:Play()
                 elseif hovering then
                     tweens.hover:Play()
@@ -279,7 +292,7 @@ function library.CreateWindow(name)
                     tweens.error:Play()
                     task.wait(2)
                     button.Text = settings.Name
-                    reset()
+                    reset_tween()
                     debounce = true
                 end
                 return success
@@ -299,14 +312,14 @@ function library.CreateWindow(name)
                 if debounce then
                     tweens.default:Play()
                 end
-                if clicking then
-                    clicking = false
+                if mouse_down then
+                    mouse_down = false
                 end
             end
 
             local function on_input_began(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and hovering then
-                    clicking = true
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    mouse_down = true
                     if debounce then
                         tweens.interact:Play()
                     end
@@ -314,8 +327,8 @@ function library.CreateWindow(name)
             end
 
             local function on_input_ended(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and hovering then
-                    clicking = false
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
+                    mouse_down = false
                     if debounce then
                         tweens.hover:Play()
                         attempt_callback()
@@ -335,7 +348,9 @@ function library.CreateWindow(name)
             local button_functions = {}
 
             function button_functions.Click()
-                task.spawn(attempt_callback)
+                if debounce then
+                    task.spawn(attempt_callback)
+                end
             end
 
             function button_functions.Destroy()
@@ -363,29 +378,29 @@ function library.CreateWindow(name)
             local checkbox = toggle.CheckBox
 
             checkbox.BackgroundTransparency = settings.StartValue and 0 or 1
-            toggle.Parent = element_holder
-            toggle.Name = settings.Name
+
             toggle.Text = settings.Name
+            toggle.Parent = element_holder
 
             --# core
 
-            local hovering, clicking, switch, debounce = false, false, settings.StartValue, true
+            local hovering, mouse_down, switch, debounce = false, false, settings.StartValue, true
 
             --# tween and coloring stuff
 
             local tweens = {
-                default = tweenservice:Create(toggle, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.default_color}),
-                hover = tweenservice:Create(toggle, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.hover_color}),
-                interact = tweenservice:Create(toggle, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.interact_color}),
-                error = tweenservice:Create(toggle, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.error_color}),
+                default = tweenservice:Create(toggle, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
+                hover = tweenservice:Create(toggle, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}),
+                interact = tweenservice:Create(toggle, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
+                error = tweenservice:Create(toggle, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
                 checkbox = {
-                    [true] = tweenservice:Create(checkbox, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundTransparency = 0}),
-                    [false] = tweenservice:Create(checkbox, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundTransparency = 1}),
+                    [true] = tweenservice:Create(checkbox, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundTransparency = 0}),
+                    [false] = tweenservice:Create(checkbox, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundTransparency = 1}),
                 },
             }
 
-            local function reset()
-                if clicking then
+            local function reset_tween()
+                if mouse_down then
                     tweens.interact:Play()
                 elseif hovering then
                     tweens.hover:Play()
@@ -405,7 +420,7 @@ function library.CreateWindow(name)
                     tweens.error:Play()
                     task.wait(2)
                     button.Text = settings.Name
-                    reset()
+                    reset_tween()
                     debounce = true
                 end
                 return success
@@ -431,14 +446,14 @@ function library.CreateWindow(name)
                 if debounce then
                     tweens.default:Play()
                 end
-                if clicking then
-                    clicking = false
+                if mouse_down then
+                    mouse_down = false
                 end
             end
 
             local function on_input_began(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 and hovering then
-                    clicking = true
+                    mouse_down = true
                     if debounce then
                         tweens.interact:Play()
                     end
@@ -446,8 +461,8 @@ function library.CreateWindow(name)
             end
 
             local function on_input_ended(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and hovering then
-                    clicking = false
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
+                    mouse_down = false
                     if debounce then
                         tweens.hover:Play()
                         set_switch(not switch)
@@ -498,12 +513,12 @@ function library.CreateWindow(name)
 
             local slider = assets.Elements.Slider:Clone()
             local main = slider.Main
+
             local bar = main.Bar
             local progress_label = main.Progress
 
-            slider.Parent = element_holder
-            slider.Name = settings.Name
             slider.Text = settings.Name
+            slider.Parent = element_holder
 
             --# core
 
@@ -512,22 +527,14 @@ function library.CreateWindow(name)
             --# tween and coloring stuff
 
             local tweens = {
-                default = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.default_color}),
-                error = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.error_color}),
+                default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
+                error = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
                 slider = {
-                    default = tweenservice:Create(main, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.slider.default_color}),
-                    hover = tweenservice:Create(main, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundColor3 = theme.element.slider.hover_color}),
+                    default = tweenservice:Create(main, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.slider.default_color}),
+                    hover = tweenservice:Create(main, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.slider.hover_color}),
                 },
             }
-
-            local function reset()
-                if hovering then
-                    tweens.slider.hover:Play()
-                else
-                    tweens.slider.default:Play()
-                end
-            end
-
+            
             --# callback stufff
 
             local function attempt_callback()
@@ -552,7 +559,7 @@ function library.CreateWindow(name)
                 if value ~= progress then
                     progress = value
                     progress_label.Text = tostring(progress) .. " " .. settings.Suffix or ""
-                    attempt_callback()
+                    return attempt_callback()
                 end
             end
 
@@ -570,13 +577,10 @@ function library.CreateWindow(name)
                 if debounce then
                     tweens.slider.default:Play()
                 end
-                if sliding then
-                    sliding = false
-                end
             end
 
             local function on_input_began(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and hovering and debounce and not sliding then
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and debounce then
                     sliding = true
 
                     --# bla bla stuff right now bro?
@@ -584,8 +588,8 @@ function library.CreateWindow(name)
                     local last_mouse_x = userinputservice:GetMouseLocation().X
 
                     do
-                        local x_progress = last_mouse_x - bar.AbsolutePosition.X
-                        tweenservice:Create(bar, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
+                        local x_progress = math.clamp(last_mouse_x - bar.AbsolutePosition.X, 0, main.AbsoluteSize.X)
+                        tweenservice:Create(bar, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
     
                         local new_progress = math.floor(((x_progress / main.AbsoluteSize.X) * range) / settings.Increment) * settings.Increment
                         update_progress(new_progress)
@@ -598,8 +602,8 @@ function library.CreateWindow(name)
                             if mouse_x_delta ~= 0 then
                                 last_mouse_x = current_mouse_x
 
-                                local x_progress = current_mouse_x - bar.AbsolutePosition.X
-                                tweenservice:Create(bar, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
+                                local x_progress = math.clamp(current_mouse_x - bar.AbsolutePosition.X, 0, main.AbsoluteSize.X)
+                                tweenservice:Create(bar, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
 
                                 local new_progress = math.floor(((x_progress / main.AbsoluteSize.X) * range) / settings.Increment) * settings.Increment
                                 update_progress(new_progress)
@@ -612,7 +616,7 @@ function library.CreateWindow(name)
             end
 
             local function on_input_ended(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and hovering then
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and sliding then
                     sliding = false
                 end
             end
@@ -630,7 +634,7 @@ function library.CreateWindow(name)
 
             function slider_functions.Set(value)
                 local x_progress = (value / range) * main.AbsoluteSize.X
-                tweenservice:Create(bar, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
+                tweenservice:Create(bar, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
                 update_progress(value)
             end
 
@@ -656,13 +660,13 @@ function library.CreateWindow(name)
             button:Destroy()
             tab:Destroy()
             if current_tab == tab then
-                current_tab = nil
+                current_tab, current_tab_button = nil, nil
                 local all_tabs = tabholder:GetChildren()
                 local random_tab = all_tabs[math.random(#all_tabs)]
                 if random_tab then
                     local random_tab_button = tablist:FindFirstChild(random_tab.Name)
                     if random_tab_button then
-                        change_tab(random_tab, random_tab_button, true)
+                        change_tab(random_tab, random_tab_button)
                     end
                 end
             end
