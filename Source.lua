@@ -599,7 +599,7 @@ function library.CreateWindow(name)
                         local x_progress = math.clamp(last_mouse_x - bar.AbsolutePosition.X, 0, main.AbsoluteSize.X)
                         tweenservice:Create(bar, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
     
-                        local new_progress = math.clamp(math.round(((x_progress / main.AbsoluteSize.X) * range) / settings.Increment) * settings.Increment, min_value, max_value)
+                        local new_progress = math.clamp(math.round(((x_progress / main.AbsoluteSize.X) * range + .5) / settings.Increment) * settings.Increment, min_value, max_value)
                         update_progress(new_progress)
                     end
 
@@ -613,7 +613,7 @@ function library.CreateWindow(name)
                                 local x_progress = math.clamp(current_mouse_x - bar.AbsolutePosition.X, 0, main.AbsoluteSize.X)
                                 tweenservice:Create(bar, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
 
-                                local new_progress = math.clamp(math.round(((x_progress / main.AbsoluteSize.X) * range) / settings.Increment) * settings.Increment, min_value, max_value)
+                                local new_progress = math.clamp(math.round(((x_progress / main.AbsoluteSize.X) * range +.5) / settings.Increment) * settings.Increment, min_value, max_value)
                                 update_progress(new_progress)
                             end
                         else
@@ -641,6 +641,7 @@ function library.CreateWindow(name)
             local slider_functions = {}
 
             function slider_functions.Set(value)
+                value = math.clamp(value, min_value, max_value)
                 local x_progress = (value / range) * main.AbsoluteSize.X
                 tweenservice:Create(bar, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
                 update_progress(value)
@@ -657,6 +658,24 @@ function library.CreateWindow(name)
         end
 
         --# dropdown
+
+        --[[
+            Settings:
+
+            Name = <string>,
+            CurrentOption = <string>,
+            Options = <array : <string>>,
+            Callback = <function>
+        ]]
+
+        function tab_functions.CreateDropdown(settings)
+
+            --# setup
+
+            local dropdown = assets.Elements.Dropdown:Clone()
+            
+
+        end
         
         --# notification
 
@@ -694,7 +713,7 @@ end
 
 --# test
 
-local window = library.CreateWindow("cum")
+local window, window2 = library.CreateWindow("cum"), library.CreateWindow("niggas")
 local tab1, tab2, tab3 = window.CreateTab("gay porn"), window.CreateTab("movies"), window.CreateTab("nigger stuff")
 tab1.CreateSection("nigger point")
 tab1.CreateButton({
@@ -711,7 +730,7 @@ tab1.CreateSlider({
     Suffix = "Noobs",
     Range = {1, 100},
     StartValue = 50,
-    Increment = 1.5,
+    Increment = 1,
     Callback = function(value)
         warn("Congrats with your", value, "Noobs Retard")
     end
@@ -720,15 +739,13 @@ tab1.CreateSlider({
 tab2.CreateWarning("Allah bir varmış bir yokmuş, desem günah olurdu ama bu adam türk olsa severdiniz")
 tab2.CreateToggle({
     Name = "Cum Mode",
-    StartValue = false,
+    StartValue = true,
     Callback = function(v)
         warn("Your cum mode is now:", v)
     end
 })
 
-tab2.CreateWarning("QWDKIOQWDKOPQWKD OQWD OPQWOKD QWOD JKQWIJD IQWJD JIQWD JQWIODJ IQWD JIQWD JQWP IODJQW")
-
-task.delay(7, tab1.Destroy)
+tab2.CreateWarning("Tariconun allahı yok")
 
 --# brav
 
