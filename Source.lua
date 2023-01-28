@@ -61,6 +61,15 @@ local theme = {
     tab = {
         button_default = Color3.fromRGB(150, 150, 150),
         button_selected = Color3.fromRGB(255, 255, 255)
+    },
+    dropdown = {
+        option_corner = {
+            default = Color3.fromRGB(62, 62, 62),
+            selected = Color3.fromRGB(187, 197, 255)
+        },
+        option_color = {
+            default = Color3.fromRGB(27, 27, 27),
+        }
     }
 }
 
@@ -164,7 +173,7 @@ function library.CreateWindow(name)
         --# some scaling stuff
 
         list_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            element_holder.CanvasSize = UDim2.fromOffset(0, list_layout.AbsoluteContentSize)
+            element_holder.CanvasSize = UDim2.fromOffset(0, list_layout.AbsoluteContentSize.Y + 20)
         end)
         
         --# functions
@@ -200,7 +209,7 @@ function library.CreateWindow(name)
             local label = assets.Elements.Label:Clone()
 
             label:GetPropertyChangedSignal("TextBounds"):Connect(function()
-                label.Size = UDim2.new(label.Size.X, UDim.new(0, label.TextBounds.Y))
+                label.Size = UDim2.new(label.Size.X, UDim.new(0, label.TextBounds.Y + 10))
             end)
 
             label.Text = text
@@ -225,7 +234,7 @@ function library.CreateWindow(name)
             local warning = assets.Elements.Warning:Clone()
 
             warning:GetPropertyChangedSignal("TextBounds"):Connect(function()
-                warning.Size = UDim2.new(warning.Size.X, UDim.new(0, warning.TextBounds.Y))
+                warning.Size = UDim2.new(warning.Size.X, UDim.new(0, warning.TextBounds.Y + 10))
             end)
 
             warning.Text = text
@@ -379,6 +388,9 @@ function library.CreateWindow(name)
             --# setup
 
             local toggle = assets.Elements.Toggle:Clone()
+            
+            task.wait()
+
             local checkbox = toggle.CheckBox
 
             checkbox.BackgroundTransparency = settings.StartValue and 0 or 1
@@ -516,6 +528,9 @@ function library.CreateWindow(name)
             --# setup
 
             local slider = assets.Elements.Slider:Clone()
+            
+            task.wait()
+
             local main = slider.Main
 
             local bar = main.Bar
@@ -673,8 +688,259 @@ function library.CreateWindow(name)
             --# setup
 
             local dropdown = assets.Elements.Dropdown:Clone()
-            
 
+            task.wait()
+
+            local hitbox = dropdown.Hitbox
+            local arrow = dropdown.Icon
+            local selected_label = dropdown.Selected
+            local list = dropdown.List.Holder
+            local list_layout = list.UIListLayout
+
+            selected_label.Text = settings.CurrentOption
+
+            dropdown.Text = settings.Name
+            dropdown.Parent = element_holder
+
+            --# scaling stuff over here
+
+            list.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+            list_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                list.CanvasSize = UDim2.new(0, 0, 0, list_layout.AbsoluteContentSize.Y + 10)
+            end)
+
+            --# core
+
+            local hovering, mouse_down, current_option, current_option_button, open = false, false, settings.CurrentOption, nil, false
+
+            --# tween and coloring stuff
+
+            local tweens = {
+                default = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
+                hover = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}),
+                interact = tweenservice:Create(dropdown, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
+                dropdown = {
+                    [true] = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(dropdown.Size.X, UDim.new(0, 270))}),
+                    [false] = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = dropdown.Size}),
+                },
+                arrow = {
+                    [true] = tweenservice:Create(arrow, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Rotation = 180}),
+                    [false] = tweenservice:Create(arrow, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Rotation = 0}),
+                },
+            }
+
+            local function reset_tween()
+                if mouse_down then
+                    tweens.interact:Play()
+                elseif hovering then
+                    tweens.hover:Play()
+                else
+                    tweens.default:Play()
+                end
+            end
+
+            --# callback
+
+            local function attempt_callback()
+                local success, message = pcall(settings.Callback, current_option)
+                return success, message
+            end
+
+            local function set_option(option, button)
+                local previous_button = current_option_button
+                current_option, current_option_button = option, button
+                if previous_button then
+                    previous_button.UIStroke.Color = theme.dropdown.option_corner.default
+                end
+                current_option_button.UIStroke.Color = theme.dropdown.option_corner.selected
+                selected_label.Text = current_option
+                return attempt_callback()
+            end
+
+            --# connection callbacks
+
+            local function on_mouse_enter()
+                hovering = true
+                tweens.hover:Play()
+            end
+
+            local function on_mouse_leave()
+                hovering = false
+                if mouse_down then
+                    mouse_down = false
+                end
+                tweens.default:Play()
+            end
+
+            local function on_input_began(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    mouse_down = true
+                    tweens.interact:Play()
+                end
+            end
+
+            local function on_input_ended(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
+                    mouse_down = false
+                    open = not open
+                    tweens.arrow[open]:Play()
+                    tweens.dropdown[open]:Play()
+                    tweens.hover:Play()
+                end
+            end
+
+            --# connections
+
+            hitbox.MouseEnter:Connect(on_mouse_enter)
+            hitbox.MouseLeave:Connect(on_mouse_leave)
+            hitbox.InputBegan:Connect(on_input_began)
+            hitbox.InputEnded:Connect(on_input_ended)
+
+            --# CREATING OPTIONS
+
+            local function create_option(option)
+                
+                local button = assets.Elements.DropdownOption:Clone()
+
+                button.Name = option
+                button.Text = option
+                button.Parent = list
+
+                --# normal button stuff.
+
+                local hovering, mouse_down, debounce = false, false, true
+
+                --# tween and coloring stuff
+    
+                local tweens = {
+                    default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.dropdown.option_color.default}),
+                    hover = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}),
+                    interact = tweenservice:Create(button, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
+                    error = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
+                }
+    
+                local function reset_tween()
+                    if mouse_down then
+                        tweens.interact:Play()
+                    elseif hovering then
+                        tweens.hover:Play()
+                    else
+                        tweens.default:Play()
+                    end
+                end
+    
+                --# callback stufff
+    
+                local function choose()
+                    local success, message = set_option(option, button)
+                    if not success then
+                        debounce = false
+                        button.Text = "Callback Error"
+                        warn("plue-lib Callback Error:", message)
+                        tweens.error:Play()
+                        task.wait(2)
+                        button.Text = option
+                        reset_tween()
+                        debounce = true
+                    end
+                    return success
+                end
+    
+                --# connection callbacks
+    
+                local function on_mouse_enter()
+                    hovering = true
+                    if debounce then
+                        tweens.hover:Play()
+                    end
+                end
+    
+                local function on_mouse_leave()
+                    hovering = false
+                    if debounce then
+                        tweens.default:Play()
+                    end
+                    if mouse_down then
+                        mouse_down = false
+                    end
+                end
+    
+                local function on_input_began(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        mouse_down = true
+                        if debounce then
+                            tweens.interact:Play()
+                        end
+                    end
+                end
+    
+                local function on_input_ended(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
+                        mouse_down = false
+                        if debounce then
+                            tweens.hover:Play()
+                            if current_option ~= option then
+                                choose()
+                            end
+                        end
+                    end
+                end
+    
+                --# connections
+    
+                button.MouseEnter:Connect(on_mouse_enter)
+                button.MouseLeave:Connect(on_mouse_leave)
+                button.InputBegan:Connect(on_input_began)
+                button.InputEnded:Connect(on_input_ended)
+            end
+
+            --# setting base options
+            
+            for _, option in ipairs(settings.Options) do
+                create_option(option)
+            end
+
+            --# some other stuff of course
+
+            do
+                local current_button = list:FindFirstChild(current_option)
+                if current_button then
+                    current_option_button = current_button
+                    current_option_button.UIStroke.Color = theme.dropdown.option_corner.selected
+                end
+            end
+
+            --# functions
+
+            local dropdown_functions = {}
+
+            dropdown_functions.Add = create_option
+
+            dropdown_functions.Remove = function(option)
+                local button = list:FindFirstChild(option)
+                if button then
+                    button:Destroy()
+                    if current_option == option and current_option_button == button then
+                        current_option, current_option_button, selected_label.Text = nil, nil, ""
+                    end
+                end
+            end
+
+            function dropdown_functions.Set(option)
+                if current_option ~= option then
+                    local button = list:FindFirstChild(option)
+                    if button then
+                        task.spawn(set_option, option, button)
+                    end
+                end
+            end
+
+            function dropdown_functions.Destroy()
+                dropdown:Destroy()
+            end
+
+            return dropdown_functions
         end
         
         --# notification
@@ -713,7 +979,7 @@ end
 
 --# test
 
-local window, window2 = library.CreateWindow("cum"), library.CreateWindow("niggas")
+local window = library.CreateWindow("cum")
 local tab1, tab2, tab3 = window.CreateTab("gay porn"), window.CreateTab("movies"), window.CreateTab("nigger stuff")
 tab1.CreateSection("nigger point")
 tab1.CreateButton({
@@ -742,6 +1008,21 @@ tab2.CreateToggle({
     StartValue = true,
     Callback = function(v)
         warn("Your cum mode is now:", v)
+    end
+})
+
+tab2.CreateDropdown({
+    Name = "En Ucube Olan",
+    Options = {
+        "Tarico",
+        "Efeerderdnesn",
+        "Alico",
+        "İzabel",
+        "plue"
+    },
+    CurrentOption = "plue",
+    Callback = function(option)
+        print("orospu cocugu", option)
     end
 })
 
