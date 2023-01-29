@@ -68,7 +68,7 @@ local theme = {
             selected = Color3.fromRGB(187, 197, 255)
         },
         option_color = {
-            default = Color3.fromRGB(27, 27, 27),
+            default = Color3.fromRGB(27,27,27)
         }
     }
 }
