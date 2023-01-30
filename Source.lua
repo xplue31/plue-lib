@@ -56,21 +56,19 @@ local theme = {
         slider = {
             hover_color = Color3.fromRGB(32,32,32),
             default_color = Color3.fromRGB(27,27,27),
+        },
+        dropdown = {
+            option_corner = {
+                default = Color3.fromRGB(62, 62, 62),
+                selected = Color3.fromRGB(187, 197, 255)
+            },
+            default = Color3.fromRGB(27,27,27)
         }
     },
     tab = {
         button_default = Color3.fromRGB(150, 150, 150),
         button_selected = Color3.fromRGB(255, 255, 255)
     },
-    dropdown = {
-        option_corner = {
-            default = Color3.fromRGB(62, 62, 62),
-            selected = Color3.fromRGB(187, 197, 255)
-        },
-        option_color = {
-            default = Color3.fromRGB(27,27,27)
-        }
-    }
 }
 
 --# bruh
@@ -703,8 +701,6 @@ function library.CreateWindow(name)
             dropdown.Parent = element_holder
 
             --# scaling stuff over here
-
-            list.CanvasSize = UDim2.new(0, 0, 0, 0)
 
             list_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
                 list.CanvasSize = UDim2.new(0, 0, 0, list_layout.AbsoluteContentSize.Y + 10)
