@@ -747,9 +747,9 @@ function library.CreateWindow(name)
                 local previous_button = current_option_button
                 current_option, current_option_button = option, button
                 if previous_button then
-                    previous_button.UIStroke.Color = theme.dropdown.option_corner.default
+                    previous_button.UIStroke.Color = theme.element.dropdown.option_corner.default
                 end
-                current_option_button.UIStroke.Color = theme.dropdown.option_corner.selected
+                current_option_button.UIStroke.Color = theme.element.dropdown.option_corner.selected
                 selected_label.Text = current_option
                 return attempt_callback()
             end
@@ -810,7 +810,7 @@ function library.CreateWindow(name)
                 --# tween and coloring stuff
     
                 local tweens = {
-                    default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.dropdown.option_color.default}),
+                    default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.dropdown.default}),
                     hover = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}),
                     interact = tweenservice:Create(button, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
                     error = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
