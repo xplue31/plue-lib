@@ -1110,7 +1110,7 @@ function library.CreateWindow(name)
 
                     binding = true
                     bind = nil
-                    holder.Text = "Press A Key"
+                    holder.Text = "..."
                 end
             end
 
