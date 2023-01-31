@@ -3,7 +3,12 @@
 local runservice = game:GetService("RunService")
 local tweenservice = game:GetService("TweenService")
 local userinputservice = game:GetService("UserInputService")
+local textservice = game:GetService("TextService")
 local coregui = game:GetService("CoreGui")
+
+--# fr cum.
+
+local assets = game:GetObjects("rbxassetid://12211969190")[1]
 
 local library_holder = coregui:FindFirstChild("plue-lib")
 if not library_holder then
@@ -11,7 +16,12 @@ if not library_holder then
     library_holder.Name = "plue-lib"
 end
 
-local assets = game:GetObjects("rbxassetid://12211969190")[1]
+local notification_holder = library_holder:FindFirstChild("__notifications")
+if not notification_holder then
+    notification_holder = assets.NotificationHolder:Clone()
+    notification_holder.Name = "__notifications"
+    notification_holder.Parent = library_holder
+end
 
 --# white ass cum
 
@@ -63,7 +73,7 @@ local theme = {
                 selected = Color3.fromRGB(187, 197, 255)
             },
             default = Color3.fromRGB(27,27,27)
-        }
+        },
     },
     tab = {
         button_default = Color3.fromRGB(150, 150, 150),
@@ -74,6 +84,45 @@ local theme = {
 --# bruh
 
 local library = {}
+
+--# notification
+
+--[[
+    Settings:
+
+    Content = <string>,
+    Color = <color3>,
+    Duration = <number>
+]]
+
+function library.Notify(settings)
+            
+    local notification = assets.Notification:Clone()
+
+    task.wait()
+
+    local main = notification.Main
+    local color_bar = main.Color
+    local label : TextLabel = main.Text
+    local shadow = notification.Shadow.DropShadow
+
+    color_bar.BackgroundColor3 = settings.Color
+    label.Text = settings.Content
+
+    notification.Size = UDim2.fromOffset(1,notification.Size.Y.Offset)
+    notification.Parent = notification_holder
+
+    task.wait()
+
+    tweenservice:Create(notification, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(label.TextBounds.X + 20, notification.Size.Y.Offset)}, Hro):Play()
+
+    task.delay(settings.Duration + .3, function()
+        tweenservice:Create(notification, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(0, notification.Size.Y.Offset)}):Play()
+        tweenservice:Create(shadow, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {ImageTransparency = 1}):Play()
+        task.wait(.3)
+        notification:Destroy()
+    end)
+end
 
 --# orange ass cum
 
@@ -903,7 +952,7 @@ function library.CreateWindow(name)
                 local current_button = list:FindFirstChild(current_option)
                 if current_button then
                     current_option_button = current_button
-                    current_option_button.UIStroke.Color = theme.dropdown.option_corner.selected
+                    current_option_button.UIStroke.Color = theme.element.dropdown.option_corner.selected
                 end
             end
 
@@ -938,8 +987,157 @@ function library.CreateWindow(name)
 
             return dropdown_functions
         end
-        
-        --# notification
+
+        --# input
+
+        --# keybind
+
+        --[[
+            Settings:
+
+            Name = <string>,
+            Callback = <function>,
+            CurrentBind = <KeyCode?>
+        ]]
+
+        function tab_functions.CreateKeybind(settings)
+            
+            --# setup
+
+            local keybind = assets.Elements.Keybind:Clone()
+
+            task.wait()
+
+            local holder = keybind.Holder
+
+            holder.Text = settings.CurrentBind and settings.CurrentBind.Name or ""
+
+            keybind.Text = settings.Name
+            keybind.Parent = element_holder
+
+            --# scaling stuff
+
+            holder:GetPropertyChangedSignal("TextBounds"):Connect(function()
+                holder.Size = UDim2.fromOffset(holder.TextBounds.X + 20, holder.Size.Y.Offset)
+            end)
+
+            --# core
+
+            local hovering, mouse_down, bind, binding, debounce = false, false, settings.CurrentBind, false, true
+
+            --# tween and coloring stuff
+
+            local tweens = {
+                default = tweenservice:Create(keybind, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
+                hover = tweenservice:Create(keybind, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}),
+                interact = tweenservice:Create(keybind, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
+                error = tweenservice:Create(keybind, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
+            }
+
+            local function reset_tween()
+                if mouse_down then
+                    tweens.interact:Play()
+                elseif hovering then
+                    tweens.hover:Play()
+                else
+                    tweens.default:Play()
+                end
+            end
+
+            --# callback stufff
+
+            local function attempt_callback()
+                local success, message = pcall(settings.Callback)
+                if not success then
+                    debounce = false
+                    button.Text = "Callback Error"
+                    warn("plue-lib Callback Error:", message)
+                    tweens.error:Play()
+                    task.wait(2)
+                    button.Text = settings.Name
+                    reset_tween()
+                    debounce = true
+                end
+                return success
+            end
+
+            --# binding stuff
+
+            local function uis_input_began(input, gameProcessedEvent)
+                if not gameProcessedEvent then
+                    if binding then
+                        if input.UserInputType == Enum.UserInputType.Keyboard then
+                            binding = false
+                            bind = input.KeyCode
+                            holder.Text = bind.Name
+                        end
+                    elseif input.KeyCode == bind then
+                        attempt_callback()
+                    end
+                end
+            end
+
+            --# connection callbacks
+
+            local function on_mouse_enter()
+                hovering = true
+                tweens.hover:Play()
+            end
+
+            local function on_mouse_leave()
+                hovering = false
+                tweens.default:Play()
+                if mouse_down then
+                    mouse_down = false
+                end
+                if binding then
+                    binding = false
+                    holder.Text = ""
+                end
+            end
+
+            local function on_input_began(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    mouse_down = true
+                    tweens.interact:Play()
+                end
+            end
+
+            local function on_input_ended(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
+                    mouse_down = false
+                    tweens.hover:Play()
+
+                    binding = true
+                    bind = nil
+                    holder.Text = "Press A Key"
+                end
+            end
+
+            --# connections
+
+            keybind.MouseEnter:Connect(on_mouse_enter)
+            keybind.MouseLeave:Connect(on_mouse_leave)
+            keybind.InputBegan:Connect(on_input_began)
+            keybind.InputEnded:Connect(on_input_ended)
+
+            local uis_connection = userinputservice.InputBegan:Connect(uis_input_began)
+
+            --# functions
+
+            local keybind_functions = {}
+
+            function keybind_functions.Set(value)
+                bind = value
+            end
+
+            function keybind_functions.Destroy()
+                keybind:Destroy()
+                uis_connection:Disconnect()
+            end
+
+            return keybind_functions
+        end
 
         --# prompt
 
@@ -1023,6 +1221,25 @@ tab2.CreateDropdown({
 })
 
 tab2.CreateWarning("Tariconun allahı yok")
+
+tab2.CreateKeybind({
+    Name = "print cool",
+    CurrentBind = Enum.KeyCode.Q,
+    Callback = function()
+        print("you are sooooo fucking cool bro!!!!!")
+    end
+})
+
+tab3.CreateButton({
+    Name = "Notify Something Cool",
+    Callback = function()
+        library.Notify({
+            Content = "Very cool stuff right here ma boy!",
+            Duration = 5,
+            Color = Color3.fromRGB(255, 65, 65)
+        })
+    end
+})
 
 --# brav
 
