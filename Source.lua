@@ -114,7 +114,7 @@ function library.Notify(settings)
 
     task.wait()
 
-    tweenservice:Create(notification, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(label.TextBounds.X + 20, notification.Size.Y.Offset)}, Hro):Play()
+    tweenservice:Create(notification, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(label.TextBounds.X + 20, notification.Size.Y.Offset)}):Play()
 
     task.delay(settings.Duration + .3, function()
         tweenservice:Create(notification, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(0, notification.Size.Y.Offset)}):Play()
@@ -151,6 +151,12 @@ function library.CreateWindow(name)
     local menu = main.Menu
     local tablist = menu.Tabs
 
+    --# scaling
+
+    tablist.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        tablist.CanvasSize = UDim2.fromOffset(tablist.UIListLayout.AbsoluteContentSize.X, 0)
+    end)
+
     --# other shit
 
     gui.Name = name
@@ -179,9 +185,40 @@ function library.CreateWindow(name)
         tweenservice:Create(current_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = theme.tab.button_selected}):Play()
     end
 
+    --# closing.
+
+    local close_keybind = Enum.KeyCode.RightShift
+
     --# nigga cum
 
     local window_functions = {}
+
+    function window_functions.ToggleWindow(toggle)
+        core.Visible = toggle
+    end
+
+    --# some connection
+
+    close_button.Activated:Connect(function()
+        window_functions.ToggleWindow(false)
+        library.Notify({
+            Color = Color3.fromRGB(0, 110, 255),
+            Content = "Window [" .. name .. "] is closed. Press " .. close_keybind.Name .. " to open it.",
+            Duration = 3
+        })
+    end)
+
+    local close_keybind_connection = userinputservice.InputBegan:Connect(function(input, gameProcessedEvent)
+        if not gameProcessedEvent and input.KeyCode == close_keybind  then
+            window_functions.ToggleWindow(not core.Visible)
+        end
+    end)
+
+    core.Destroying:Connect(function()
+        close_keybind_connection:Disconnect()
+    end)
+
+    --# rest
 
     function window_functions.CreateTab(name)
 
@@ -196,6 +233,7 @@ function library.CreateWindow(name)
         button.Text = name
         button.Name = name
         button.Parent = tablist
+        button.Size = UDim2.fromOffset(button.TextBounds.X, button.Size.Y.Offset)
 
         tab.Name = name
         tab.Visible = false
@@ -1123,6 +1161,10 @@ function library.CreateWindow(name)
 
             local uis_connection = userinputservice.InputBegan:Connect(uis_input_began)
 
+            keybind.Destroying:Connect(function()
+                uis_connection:Disconnect()
+            end)
+
             --# functions
 
             local keybind_functions = {}
@@ -1133,10 +1175,183 @@ function library.CreateWindow(name)
 
             function keybind_functions.Destroy()
                 keybind:Destroy()
-                uis_connection:Disconnect()
             end
 
             return keybind_functions
+        end
+
+        --# input
+
+        --[[
+            Settings:
+
+            Name = <string>,
+            CurrentInput = <string>,
+            Callback = <function>
+        ]]
+
+        function tab_functions.CreateInput(settings)
+            
+            --# setup
+
+            local input = assets.Elements.Input:Clone()
+
+            task.wait()
+
+            local holder = input.Holder
+            local textbox : TextBox = input.TextBox
+
+            input.Text = settings.Name
+            input.Parent = element_holder
+
+            --# scaling stuff
+            
+            textbox:GetPropertyChangedSignal("TextBounds"):Connect(function()
+                if textbox:IsFocused() then
+                    input.Size = UDim2.new(input.Size.X, UDim.new(0, math.clamp(textbox.TextBounds.Y + 40, 60, math.huge)))
+                end
+            end)
+
+            if settings.CurrentInput:len() > 24 then
+                holder.Text = settings.CurrentInput:sub(1, 24) .. "..."
+            else
+                holder.Text = settings.CurrentInput
+            end
+
+            holder.Size = UDim2.fromOffset(holder.TextBounds.X + 50, holder.Size.Y.Offset)
+
+            --#dang
+
+            textbox.Text = settings.CurrentInput
+
+            --# bruh
+
+            local hovering, mouse_down, inputting, current_input, debounce = false, false, false, settings.CurrentInput, true
+
+            --# tweening etc
+
+            local tweens = {
+                default = tweenservice:Create(input, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
+                hover = tweenservice:Create(input, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}),
+                interact = tweenservice:Create(input, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
+                error = tweenservice:Create(input, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
+            }
+
+            --# callback stuff
+
+            local function reset_tween()
+                if mouse_down then
+                    tweens.interact:Play()
+                elseif hovering then
+                    tweens.hover:Play()
+                else
+                    tweens.default:Play()
+                end
+            end
+
+            local function attempt_callback()
+                local success, message = pcall(settings.Callback, current_input)
+                if not success then
+                    debounce = false
+                    input.Text = "Callback Error"
+                    warn("plue-lib Callback Error:", message)
+                    tweens.error:Play()
+                    task.wait(2)
+                    input.Text = settings.Name
+                    reset_tween()
+                    debounce = true
+                end
+                return success
+            end
+            
+            local function set_input(input)
+                if input ~= current_input then
+                    current_input = input
+                    if string.len(input) > 24 then
+                        holder.Text = string.sub(input, 1, 24) .. "..."
+                    else
+                        holder.Text = input
+                    end
+                    task.wait()
+                    holder.Size = UDim2.fromOffset(holder.TextBounds.X + 30, holder.Size.Y.Offset)
+                    attempt_callback()
+                end
+            end
+
+            --# connections
+
+            -- inpıttin
+
+            textbox.Focused:Connect(function()
+                input.Size = UDim2.new(input.Size.X, UDim.new(0, math.clamp(textbox.TextBounds.Y + 40, 60, math.huge)))
+            end)
+
+            textbox.FocusLost:Connect(function(enterPressed)
+                if enterPressed then
+                    set_input(textbox.Text)
+                end
+                input.Size = UDim2.new(input.Size.X, UDim.new(0, 60))
+                textbox.Visible = false
+            end)
+
+            -- general stuff
+
+            input.MouseEnter:Connect(function()
+                hovering = true
+                if debounce then
+                    tweens.hover:Play()
+                end
+            end)
+
+            input.MouseLeave:Connect(function()
+                hovering = false
+                if debounce then
+                    tweens.default:Play()
+                end
+                if mouse_down then
+                    mouse_down = false
+                end
+                if textbox:IsFocused() then
+                    textbox:ReleaseFocus(false)
+                    textbox.Text = current_input
+                end
+            end)
+
+            input.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    mouse_down = true
+                    if debounce then
+                        tweens.interact:Play()
+                    end
+                end
+            end)
+
+            input.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
+                    mouse_down = false
+                    
+                    if debounce then
+                        tweens.hover:Play()
+
+                        textbox.Visible = true
+                        textbox:CaptureFocus()
+                    end
+                end
+            end)
+
+            local input_functions = {}
+
+            function input_functions.Set(text)
+                textbox.Text = text
+                task.spawn(set_input, text)
+            end
+
+            function input_functions.Destroy()
+                input:Destroy()
+            end
+
+            return input_functions
+
         end
 
         --# prompt
@@ -1240,6 +1455,20 @@ tab3.CreateButton({
         })
     end
 })
+
+tab3.CreateInput({
+    Name = "Cum Color",
+    CurrentInput = "White Of Course nigger ass bitch!",
+    Callback = function(input)
+        print("Your cum is now:", input, "congrats!")
+    end
+})
+
+window.CreateTab("dqwdqw")
+window.CreateTab("KDQWIKDIOQW ")
+window.CreateTab("doqwoldqw")
+window.CreateTab("ı cume")
+window.CreateTab("qwpdwpqldqwpğdpqwldlpqwpğdlwqpğdlqwp")
 
 --# brav
 
