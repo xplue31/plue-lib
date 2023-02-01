@@ -198,30 +198,7 @@ function library.CreateWindow(name)
         end
     end
 
-    --# closing.
-
-    local close_keybind = Enum.KeyCode.RightShift
-
-    --# nigga cum
-
     local window_functions = {}
-
-    function window_functions.ToggleWindow(toggle)
-        core.Visible = toggle
-    end
-
-    --# some connection
-
-    close_button.Activated:Connect(function()
-        window_functions.ToggleWindow(false)
-        library.Notify({
-            Color = Color3.fromRGB(0, 110, 255),
-            Content = "Window [" .. name .. "] is closed. Press " .. close_keybind.Name .. " to open it.",
-            Duration = 3
-        })
-    end)
-
-    --# rest
 
     function window_functions.CreateTab(name)
 
@@ -246,7 +223,7 @@ function library.CreateWindow(name)
 
         --# check if a tab exist
 
-        if not current_tab then
+        if not current_tab and name ~= "window_settings" then
             change_tab(tab, button)
         end
 
@@ -1176,6 +1153,10 @@ function library.CreateWindow(name)
                 bind = value
             end
 
+            function keybind_functions.GetCurrentKeybind()
+                return bind
+            end
+
             function keybind_functions.Destroy()
                 keybind:Destroy()
             end
@@ -1349,6 +1330,10 @@ function library.CreateWindow(name)
                 task.spawn(set_input, text)
             end
 
+            function input_functions.GetCurrentInput()
+                return current_input
+            end
+
             function input_functions.Destroy()
                 input:Destroy()
             end
@@ -1377,7 +1362,7 @@ function library.CreateWindow(name)
     local settings_tab = window_functions.CreateTab("window_settings")
 
     settings_tab.CreateSection("Window Settings")
-    settings_tab.CreateKeybind({
+    local close_keybind = settings_tab.CreateKeybind({
         Name = "UI Keybind",
         CurrentBind = close_keybind,
         Callback = function()
@@ -1390,6 +1375,26 @@ function library.CreateWindow(name)
     settings_button.Activated:Connect(function()
         if current_tab ~= settings_tab then
             change_tab(settings_tab)
+        end
+    end)
+
+    --# buttons
+
+    --# nigga cum
+
+    function window_functions.ToggleWindow(toggle)
+        core.Visible = toggle
+    end
+
+    close_button.Activated:Connect(function()
+        window_functions.ToggleWindow(false)
+        local current_bind = close_keybind.GetCurrentKeybind()
+        if current_bind then
+            library.Notify({
+                Color = Color3.fromRGB(0, 110, 255),
+                Content = "Window [" .. name .. "] is closed. Press " .. current_bind.Name .. " to open it.",
+                Duration = 3
+            })
         end
     end)
 
