@@ -92,7 +92,8 @@ local library = {}
 
     Content = <string>,
     Color = <color3>,
-    Duration = <number>
+    Duration = <number>,
+    SoundId = <number?>
 ]]
 
 function library.Notify(settings)
@@ -111,6 +112,16 @@ function library.Notify(settings)
 
     notification.Size = UDim2.fromOffset(1,notification.Size.Y.Offset)
     notification.Parent = notification_holder
+
+    --# sound
+
+    if settings.SoundId then
+        local sound = Instance.new("Sound", notification)
+        sound.SoundId = "rbxassetid://" .. settings.SoundId
+        sound:Play()
+    end
+
+    --# rest
 
     task.wait()
 
@@ -182,7 +193,9 @@ function library.CreateWindow(name)
             tweenservice:Create(previous_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = theme.tab.button_default}):Play()
         end
         current_tab.Visible = true
-        tweenservice:Create(current_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = theme.tab.button_selected}):Play()
+        if current_tab_button then
+            tweenservice:Create(current_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = theme.tab.button_selected}):Play()
+        end
     end
 
     --# closing.
@@ -206,16 +219,6 @@ function library.CreateWindow(name)
             Content = "Window [" .. name .. "] is closed. Press " .. close_keybind.Name .. " to open it.",
             Duration = 3
         })
-    end)
-
-    local close_keybind_connection = userinputservice.InputBegan:Connect(function(input, gameProcessedEvent)
-        if not gameProcessedEvent and input.KeyCode == close_keybind  then
-            window_functions.ToggleWindow(not core.Visible)
-        end
-    end)
-
-    core.Destroying:Connect(function()
-        close_keybind_connection:Disconnect()
     end)
 
     --# rest
@@ -1363,19 +1366,34 @@ function library.CreateWindow(name)
             tab:Destroy()
             if current_tab == tab then
                 current_tab, current_tab_button = nil, nil
-                local all_tabs = tabholder:GetChildren()
-                local random_tab = all_tabs[math.random(#all_tabs)]
-                if random_tab then
-                    local random_tab_button = tablist:FindFirstChild(random_tab.Name)
-                    if random_tab_button then
-                        change_tab(random_tab, random_tab_button)
-                    end
-                end
             end
         end
 
         return tab_functions
     end
+
+    --# settings tab
+
+    local settings_tab = window_functions.CreateTab("window_settings")
+
+    settings_tab.CreateSection("Window Settings")
+    settings_tab.CreateKeybind({
+        Name = "UI Keybind",
+        CurrentBind = close_keybind,
+        Callback = function()
+            window_functions.ToggleWindow(not core.Visible)
+        end
+    })
+
+    tablist["window_settings"]:Destroy()
+
+    settings_button.Activated:Connect(function()
+        if current_tab ~= settings_tab then
+            change_tab(settings_tab)
+        end
+    end)
+
+    --# final product
 
     function window_functions.Destroy()
         gui:Destroy()
