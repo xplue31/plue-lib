@@ -16,46 +16,43 @@ if not library_holder then
     library_holder.Name = "plue-lib"
 end
 
-local notification_holder = library_holder:FindFirstChild("__notifications")
+local notification_holder = library_holder:FindFirstChild("notifications")
 if not notification_holder then
     notification_holder = assets.NotificationHolder:Clone()
-    notification_holder.Name = "__notifications"
+    notification_holder.Name = "notifications"
     notification_holder.Parent = library_holder
 end
 
 --# white ass cum
 
 local function make_draggable(pivot, core)
-    pcall(function()
-		local Dragging, DragInput, MousePos, FramePos = false
-		pivot.InputBegan:Connect(function(Input)
-			if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-				Dragging = true
-				MousePos = Input.Position
-				FramePos = core.Position
-
-				Input.Changed:Connect(function()
-					if Input.UserInputState == Enum.UserInputState.End then
-						Dragging = false
-					end
-				end)
-			end
-		end)
-		pivot.InputChanged:Connect(function(Input)
-			if Input.UserInputType == Enum.UserInputType.MouseMovement then
-				DragInput = Input
-			end
-		end)
-		userinputservice.InputChanged:Connect(function(Input)
-			if Input == DragInput and Dragging then
-				local Delta = Input.Position - MousePos
-				tweenservice:Create(core, TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position  = UDim2.new(FramePos.X.Scale,FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)}):Play()
-			end
-		end)
+	local Dragging, DragInput, MousePos, FramePos = false
+	pivot.InputBegan:Connect(function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+			Dragging = true
+			MousePos = Input.Position
+			FramePos = core.Position
+			Input.Changed:Connect(function()
+				if Input.UserInputState == Enum.UserInputState.End then
+					Dragging = false
+				end
+			end)
+		end
+	end)
+	pivot.InputChanged:Connect(function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseMovement then
+			DragInput = Input
+		end
+	end)
+	userinputservice.InputChanged:Connect(function(Input)
+		if Input == DragInput and Dragging then
+			local Delta = Input.Position - MousePos
+			tweenservice:Create(core, TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position  = UDim2.new(FramePos.X.Scale,FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)}):Play()
+		end
 	end)
 end
 
---# purple cum maybe
+--# theme stuff
 
 local theme = {
     element = {
@@ -81,7 +78,7 @@ local theme = {
     },
 }
 
---# bruh
+--# library
 
 local library = {}
 
@@ -97,6 +94,8 @@ local library = {}
 ]]
 
 function library.Notify(settings)
+
+    --# variables
             
     local notification = assets.Notification:Clone()
 
@@ -104,13 +103,15 @@ function library.Notify(settings)
 
     local main = notification.Main
     local color_bar = main.Color
-    local label : TextLabel = main.Text
+    local label = main.Text
     local shadow = notification.Shadow.DropShadow
+
+    --# setup
 
     color_bar.BackgroundColor3 = settings.Color
     label.Text = settings.Content
 
-    notification.Size = UDim2.fromOffset(1,notification.Size.Y.Offset)
+    notification.Size = UDim2.fromOffset(1 , notification.Size.Y.Offset)
     notification.Parent = notification_holder
 
     --# sound
@@ -121,33 +122,38 @@ function library.Notify(settings)
         sound:Play()
     end
 
-    --# rest
+    --# tweens
 
-    task.wait()
+    local size_tween = tweenservice:Create(notification, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(label.TextBounds.X + 20, notification.Size.Y.Offset)})
 
-    tweenservice:Create(notification, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(label.TextBounds.X + 20, notification.Size.Y.Offset)}):Play()
-
-    task.delay(settings.Duration + .3, function()
+    size_tween.Completed:Connect(function()
+        task.wait(settings.Duration)
         tweenservice:Create(notification, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(0, notification.Size.Y.Offset)}):Play()
         tweenservice:Create(shadow, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {ImageTransparency = 1}):Play()
         task.wait(.3)
         notification:Destroy()
     end)
+
+    size_tween:Play()
 end
 
---# orange ass cum
+--# Window
 
 function library.CreateWindow(name)
 
-    --# clear stuff
+    --# goofy stuff
+
+    local window_name = "[Window] " .. name
+
+    --# clear previous window
 
     for _, v in ipairs(library_holder:GetChildren()) do
-        if v.Name == name then
+        if v.Name == window_name then
             v:Destroy()
         end
     end
 
-    --# setup stuff
+    --# variables
 
     local gui = assets.Window.GUI:Clone()
     local core = gui.Core
@@ -168,18 +174,18 @@ function library.CreateWindow(name)
         tablist.CanvasSize = UDim2.fromOffset(tablist.UIListLayout.AbsoluteContentSize.X, 0)
     end)
 
-    --# other shit
+    --# set-up
 
-    gui.Name = name
+    gui.Name = window_name
     gui.Parent = library_holder
 
     topbar.Stuff.Title.Text = name
 
-    pcall(make_draggable, topbar, core)
+    --# make draggable!
 
-    --# general buttons [TODO]
+    make_draggable(topbar, core)
 
-    --# cool seperator
+    --# tab changing
 
     local current_tab , current_tab_button
 
@@ -193,22 +199,26 @@ function library.CreateWindow(name)
             tweenservice:Create(previous_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = theme.tab.button_default}):Play()
         end
         current_tab.Visible = true
+        tweenservice:Create(current_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = theme.tab.button_selected}):Play()
         if current_tab_button then
             tweenservice:Create(current_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = theme.tab.button_selected}):Play()
         end
     end
 
+    --# functions
+
     local window_functions = {}
 
     function window_functions.CreateTab(name)
 
-        --# setup
+        --# variables
 
         local tab = assets.Window.Tab:Clone()
         local element_holder = tab.Main
-        local list_layout : UIListLayout = element_holder.UIListLayout
 
         local button = assets.Window.TabButton:Clone()
+
+        --# set-up
 
         button.Text = name
         button.Name = name
@@ -219,41 +229,44 @@ function library.CreateWindow(name)
         tab.Visible = false
         tab.Parent = tabholder
 
-        element_holder.CanvasSize = UDim2.fromOffset(0, list_layout.AbsoluteContentSize)
-
         --# check if a tab exist
 
-        if not current_tab and name ~= "window_settings" then
+        if not current_tab then
             change_tab(tab, button)
         end
 
         --# changing tabs
 
         button.InputBegan:Connect(function(input)
-            if current_tab ~= tab and input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if input.UserInputType == Enum.UserInputType.MouseButton1 and current_tab ~= tab then
                 change_tab(tab, button)
             end
         end)
 
-        --# some scaling stuff
+        --# scaling
 
-        list_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            element_holder.CanvasSize = UDim2.fromOffset(0, list_layout.AbsoluteContentSize.Y + 20)
+        element_holder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            element_holder.CanvasSize = UDim2.fromOffset(0, element_holder.UIListLayout.AbsoluteContentSize.Y + 20)
         end)
         
         --# functions
 
         local tab_functions = {}
 
-        --# [elements]
-
         --# section
 
         function tab_functions.CreateSection(name)
+
+            --# variables
+
             local section = assets.Elements.Section:Clone()
+
+            --# setup
 
             section.Text = name
             section.Parent = element_holder
+
+            --# functions
 
             local section_functions = {}
 
@@ -271,19 +284,28 @@ function library.CreateWindow(name)
         --# label
 
         function tab_functions.CreateLabel(text)
+
+            --# variables
+
             local label = assets.Elements.Label:Clone()
+
+            --# scaling
 
             label:GetPropertyChangedSignal("TextBounds"):Connect(function()
                 label.Size = UDim2.new(label.Size.X, UDim.new(0, label.TextBounds.Y + 10))
             end)
 
+            --# setup
+
             label.Text = text
             label.Parent = element_holder
+
+            --# functions
 
             local label_functions = {}
 
             function label_functions.Set(text)
-                label.Text = text
+                label.Text = text   
             end
 
             function label_functions.Destroy()
@@ -296,14 +318,23 @@ function library.CreateWindow(name)
         --# warning
 
         function tab_functions.CreateWarning(text)
+
+            --# variables
+
             local warning = assets.Elements.Warning:Clone()
+
+            --# scaling
 
             warning:GetPropertyChangedSignal("TextBounds"):Connect(function()
                 warning.Size = UDim2.new(warning.Size.X, UDim.new(0, warning.TextBounds.Y + 10))
             end)
 
+            --# setup
+
             warning.Text = text
             warning.Parent = element_holder
+
+            --# functions
 
             local warning_functions = {}
 
@@ -329,18 +360,24 @@ function library.CreateWindow(name)
 
         function tab_functions.CreateButton(settings)
 
-            --# setup
+            --# element variables
 
             local button = assets.Elements.Button:Clone()
+
+            --# setup
 
             button.Text = settings.Name
             button.Parent = element_holder
 
-            --# core
+            --# more variables
 
             local hovering, mouse_down, debounce = false, false, true
 
-            --# tween and coloring stuff
+            --# tweens
+
+            local function tween(state)
+                
+            end
 
             local tweens = {
                 default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
@@ -440,6 +477,8 @@ function library.CreateWindow(name)
 
         --# toggle
 
+        Color3.fromHSV()
+
         --[[
             Settings:
 
@@ -458,7 +497,7 @@ function library.CreateWindow(name)
 
             local checkbox = toggle.CheckBox
 
-            checkbox.BackgroundTransparency = settings.StartValue and 0 or 1
+            checkbox.ImageTransparency = settings.StartValue and 0 or 1
 
             toggle.Text = settings.Name
             toggle.Parent = element_holder
@@ -475,8 +514,8 @@ function library.CreateWindow(name)
                 interact = tweenservice:Create(toggle, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
                 error = tweenservice:Create(toggle, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
                 checkbox = {
-                    [true] = tweenservice:Create(checkbox, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundTransparency = 0}),
-                    [false] = tweenservice:Create(checkbox, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {BackgroundTransparency = 1}),
+                    [true] = tweenservice:Create(checkbox, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {ImageTransparency  = 0}),
+                    [false] = tweenservice:Create(checkbox, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {ImageTransparency  = 1}),
                 },
             }
 
