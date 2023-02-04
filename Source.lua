@@ -60,17 +60,18 @@ local theme = {
         default_color = Color3.fromRGB(36, 36, 36),
         interact_color = Color3.fromRGB(125, 125, 125),
         error_color = Color3.fromRGB(175, 0, 0),
-        slider = {
-            hover_color = Color3.fromRGB(32,32,32),
-            default_color = Color3.fromRGB(27,27,27),
-        },
         dropdown = {
             option_corner = {
                 default = Color3.fromRGB(62, 62, 62),
                 selected = Color3.fromRGB(187, 197, 255)
             },
-            default = Color3.fromRGB(27,27,27)
         },
+    },
+    sub_element = { 
+        hover_color = Color3.fromRGB(32,32,32),
+        default_color = Color3.fromRGB(27,27,27),
+        interact_color = Color3.fromRGB(75, 75, 75),
+        error_color = Color3.fromRGB(124, 0, 0),
     },
     tab = {
         button_default = Color3.fromRGB(150, 150, 150),
@@ -477,8 +478,6 @@ function library.CreateWindow(name)
 
         --# toggle
 
-        Color3.fromHSV()
-
         --[[
             Settings:
 
@@ -657,8 +656,8 @@ function library.CreateWindow(name)
                 default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
                 error = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
                 slider = {
-                    default = tweenservice:Create(main, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.slider.default_color}),
-                    hover = tweenservice:Create(main, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.slider.hover_color}),
+                    default = tweenservice:Create(main, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.default_color}),
+                    hover = tweenservice:Create(main, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.hover_color}),
                 },
             }
             
@@ -916,10 +915,10 @@ function library.CreateWindow(name)
                 --# tween and coloring stuff
     
                 local tweens = {
-                    default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.dropdown.default}),
-                    hover = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}),
-                    interact = tweenservice:Create(button, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
-                    error = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
+                    default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.default_color}),
+                    hover = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.hover_color}),
+                    interact = tweenservice:Create(button, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.interact_color}),
+                    error = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.error_color}),
                 }
     
                 local function reset_tween()
@@ -1379,6 +1378,230 @@ function library.CreateWindow(name)
 
             return input_functions
 
+        end
+
+        --# color picker
+
+        --[[
+            Settings:
+
+            CurrentColor = <Color3>,
+            Name = <string>,
+            Callback = <function>
+        ]]
+
+        function tab_functions.CreateColorPicker(settings)
+
+            --# variables
+
+            local color_picker = assets.ColorPicker:Clone()
+
+            task.wait()
+
+            local hitbox = color_picker.Hitbox
+            local color_circle_icon = color_picker.Color
+            local holder = color_picker.Holder
+
+            local hue_saturation_slider = holder.HueSaturationSlider
+            local value_slider = holder.BrightnessSlider
+
+            local hex_textbox = holder.Hex.Value
+            local rgb_frame = holder.RGB.Values
+            local rgb_textboxes = {rgb_frame["R"], rgb_frame["G"], rgb_frame["B"]}
+
+            local value_slider_circle = value_slider.Button
+            local hue_saturation_slider_circle = hue_saturation_slider.Button
+
+            --# setup   
+
+            local hue, saturation, value, color = settings.CurrentColor:ToHSV(), settings.CurrentColor
+            local RGB = {
+                R = color.R * 255,
+                G = color.G * 255,
+                B = color.B * 255
+            }
+
+            local attempt_callback
+
+            local function update_color()
+
+                color_circle_icon.BackgroundColor3 = color
+
+                for _, v in ipairs(rgb_textboxes) do
+                    v.Text = color[v.Name]
+                    v.Size = UDim2.fromOffset(v.TextBounds.X + 20, hex_textbox.Size.Y.Offset)
+                end
+
+                hex_textbox.Text = color:ToHex()
+                hex_textbox.Size = UDim2.fromOffset(hex_textbox.TextBounds.X + 20, hex_textbox.Size.Y.Offset)
+
+                attempt_callback()
+
+            end
+
+            --# hue / saturation slider.
+
+            local function update_hue_slider()
+                hue_saturation_slider_circle.Position = UDim2.fromScale(hue, hue_saturation_slider_circle.Position.Y.Scale)
+                hue_saturation_slider_circle.BackgroundColor3 = Color3.fromHSV(hue, saturation, 1)
+            end
+
+            local function update_saturation_slider()
+                hue_saturation_slider_circle.Position = UDim2.fromScale(hue_saturation_slider_circle.Position.X.Scale, saturation)
+                hue_saturation_slider_circle.BackgroundColor3 = Color3.fromHSV(hue, saturation, 1)
+            end
+
+            do
+                local connection
+
+                local function start_dragging()
+                    if not connection then
+                        local last = userinputservice:GetMouseLocation()
+                        local connection = runservice.RenderStepped:Connect(function()
+                            local current = userinputservice:GetMouseLocation()
+                            local diff = current - last
+
+                            local x_progressed, y_progressed = diff.X ~= 0, diff.Y ~= 0
+
+                            if x_progressed or y_progressed then
+                                last = current
+                                if x_progressed then
+                                    hue = math.clamp((current.X - hue_saturation_slider.AbsolutePosition.X) / hue_saturation_slider.AbsoluteSize.X + .5, 0, 1)
+                                    update_hue_slider()
+                                end
+                                if y_progressed then
+                                    saturation = math.clamp((current.Y - hue_saturation_slider.AbsolutePosition.Y) / hue_saturation_slider.AbsoluteSize.Y, 0, 1)
+                                    update_saturation_slider()
+                                end
+                                color = Color3.fromHSV(hue, saturation, value)
+                                update_color()
+                            end
+                        end)
+                    end
+                end
+
+                local function stop_dragging()
+                    if connection then
+                        connection:Disconnect()
+                        connection = nil
+                    end
+                end
+
+                local function input_began(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        start_dragging()
+                    end
+                end
+
+                local function input_ended(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        stop_dragging()
+                    end
+                end
+
+                hue_saturation_slider_circle.InputBegan:Connect(input_began)
+                hue_saturation_slider.InputBegan:Connect(input_began)
+
+                hue_saturation_slider_circle.InputEnded:Connect(input_ended)
+                hue_saturation_slider.InputEnded:Connect(input_ended)
+            end
+
+            --# value slider.
+
+            local function update_value_slider()
+                value_slider_circle.Position = UDim2.fromScale(value, 0)
+                value_slider_circle.BackgroundColor3 = color
+            end
+
+            do
+                local connection
+
+                local function start_dragging()
+                    if not connection then
+                        local last = userinputservice:GetMouseLocation().X
+                        local connection = runservice.RenderStepped:Connect(function()
+                            local current = userinputservice:GetMouseLocation().X
+                            local diff = current - last
+                            if diff ~= 0 then
+                                last = current
+                                value = math.clamp((current - value_slider.AbsolutePosition.X) / value_slider.AbsoluteSize.X + .5, 0, 1)
+                                color = Color3.fromHSV(hue, saturation, value)
+                                update_value_slider()
+                                update_color()
+                            end
+                        end)
+                    end
+                end
+
+                local function stop_dragging()
+                    if connection then
+                        connection:Disconnect()
+                        connection = nil
+                    end
+                end
+
+                local function input_began(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        start_dragging()
+                    end
+                end
+
+                local function input_ended(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        stop_dragging()
+                    end
+                end
+
+                value_slider_circle.InputBegan:Connect(input_began)
+                value_slider.InputBegan:Connect(input_began)
+
+                value_slider_circle.InputEnded:Connect(input_ended)
+                value_slider.InputEnded:Connect(input_ended)
+            end
+
+            --# rgb input
+
+            for _, v in ipairs(rgb_textboxes) do
+
+                v:GetPropertyChangedSignal("Text"):Connect(function()
+                    v.Size = UDim2.fromOffset(v.TextBounds.X, v.Size.Y.Offset)
+                end)
+
+                v.FocusLost:Connect(function(enterPressed)
+                    if enterPressed then
+                        local input = tonumber(v.Text)
+                        if input then
+                            local new_value = math.clamp(input, 0, 255)
+                            if new_value ~= RGB[v.Name] then
+                                RGB[v.Name] = new_value
+                                color = Color3.fromRGB(RGB.R, RGB.G, RGB.B)
+                                
+                            end
+                        end
+                    end
+                    v.Text = value
+                end)
+
+                --# tweening, effects.
+
+                v.MouseEnter:Connect(function()
+                    tweenservice:Create(v, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.hover_color}):Play()
+                end)
+
+                v.MouseLeave:Connect(function()
+                    tweenservice:Create(v, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.default_color}):Play()
+                end)
+            end
+
+            --# hex input
+
+            --# visualisation
+
+            color_picker.Text = settings.Name
+            color_picker.Parent = element_holder
+
+            hue_saturation_slider_circle.BackgroundColor3 = settings.CurrentColor
+            
         end
 
         --# prompt
