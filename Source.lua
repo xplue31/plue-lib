@@ -1066,7 +1066,16 @@ function library.CreateWindow(name)
 
             local holder = keybind.Holder
 
-            holder.Text = settings.CurrentBind and settings.CurrentBind.Name or ""
+            do
+                if settings.CurrentBind then
+                    local bind_string = userinputservice:GetStringForKeyCode(settings.CurrentBind)
+                    if bind_string then
+                        holder.Text = bind_string
+                    else
+                        holder.Text = settings.CurrentBind.Name
+                    end
+                end
+            end
 
             keybind.Text = settings.Name
             keybind.Parent = element_holder
@@ -1125,7 +1134,12 @@ function library.CreateWindow(name)
                         if input.UserInputType == Enum.UserInputType.Keyboard then
                             binding = false
                             bind = input.KeyCode
-                            holder.Text = bind.Name
+                            local bind_string = userinputservice:GetStringForKeyCode(bind)
+                            if #bind_string ~= 0 then
+                                holder.Text = bind_string
+                            else
+                                holder.Text = bind.Name
+                            end
                         end
                     elseif input.KeyCode == bind then
                         attempt_callback()
@@ -1228,7 +1242,7 @@ function library.CreateWindow(name)
 
             --# scaling stuff
             
-            textbox:GetPropertyChangedSignal("TextBounds"):Connect(function()
+            textbox:GetPropertyChangedSignal("Text"):Connect(function()
                 if textbox:IsFocused() then
                     input.Size = UDim2.new(input.Size.X, UDim.new(0, math.clamp(textbox.TextBounds.Y + 40, 60, math.huge)))
                 end
@@ -1240,7 +1254,7 @@ function library.CreateWindow(name)
                 holder.Text = settings.CurrentInput
             end
 
-            holder.Size = UDim2.fromOffset(holder.TextBounds.X + 50, holder.Size.Y.Offset)
+            holder.Size = UDim2.fromOffset(holder.TextBounds.X + 30, holder.Size.Y.Offset)
 
             --#dang
 
@@ -1294,7 +1308,6 @@ function library.CreateWindow(name)
                     else
                         holder.Text = input
                     end
-                    task.wait()
                     holder.Size = UDim2.fromOffset(holder.TextBounds.X + 30, holder.Size.Y.Offset)
                     attempt_callback()
                 end
@@ -1305,6 +1318,7 @@ function library.CreateWindow(name)
             -- inpıttin
 
             textbox.Focused:Connect(function()
+                task.wait()
                 input.Size = UDim2.new(input.Size.X, UDim.new(0, math.clamp(textbox.TextBounds.Y + 40, 60, math.huge)))
             end)
 
@@ -1394,7 +1408,7 @@ function library.CreateWindow(name)
 
             --# variables
 
-            local color_picker = assets.ColorPicker:Clone()
+            local color_picker = assets.Elements.ColorPicker:Clone()
 
             task.wait()
 
@@ -1407,39 +1421,18 @@ function library.CreateWindow(name)
 
             local hex_textbox = holder.Hex.Value
             local rgb_frame = holder.RGB.Values
-            local rgb_textboxes = {rgb_frame["R"], rgb_frame["G"], rgb_frame["B"]}
 
             local value_slider_circle = value_slider.Button
             local hue_saturation_slider_circle = hue_saturation_slider.Button
 
             --# setup   
 
-            local hue, saturation, value, color = settings.CurrentColor:ToHSV(), settings.CurrentColor
-            local RGB = {
-                R = color.R * 255,
-                G = color.G * 255,
-                B = color.B * 255
-            }
+            local color = settings.CurrentColor
+            local hue, saturation, value = color:ToHSV()
+            local r, g, b = color.R * 255, color.G * 255, color.B * 255
+            local hex = color:ToHex()
 
-            local attempt_callback
-
-            local function update_color()
-
-                color_circle_icon.BackgroundColor3 = color
-
-                for _, v in ipairs(rgb_textboxes) do
-                    v.Text = color[v.Name]
-                    v.Size = UDim2.fromOffset(v.TextBounds.X + 20, hex_textbox.Size.Y.Offset)
-                end
-
-                hex_textbox.Text = color:ToHex()
-                hex_textbox.Size = UDim2.fromOffset(hex_textbox.TextBounds.X + 20, hex_textbox.Size.Y.Offset)
-
-                attempt_callback()
-
-            end
-
-            --# hue / saturation slider.
+            --# hue / saturation updates
 
             local function update_hue_slider()
                 hue_saturation_slider_circle.Position = UDim2.fromScale(hue, hue_saturation_slider_circle.Position.Y.Scale)
@@ -1447,35 +1440,96 @@ function library.CreateWindow(name)
             end
 
             local function update_saturation_slider()
-                hue_saturation_slider_circle.Position = UDim2.fromScale(hue_saturation_slider_circle.Position.X.Scale, saturation)
+                hue_saturation_slider_circle.Position = UDim2.fromScale(hue_saturation_slider_circle.Position.X.Scale, 1 - saturation)
                 hue_saturation_slider_circle.BackgroundColor3 = Color3.fromHSV(hue, saturation, 1)
             end
+
+            --# value updates
+
+            local function update_value_slider()
+                value_slider_circle.Position = UDim2.fromScale(value, 0)
+            end
+
+            --# all slider updates
+
+            local function update_sliders()
+                update_hue_slider(); update_saturation_slider(); update_value_slider()
+            end
+
+            --# rgb updates
+
+            local function update_rgb()
+                rgb_frame.R.Text, rgb_frame.G.Text, rgb_frame.B.Text = math.round(r), math.round(g), math.round(b)
+            end
+
+            --# hex updates
+
+            local function update_hex()
+                hex_textbox.Text = "#" .. tostring(hex)
+            end
+
+            --# callback, color
+
+            local attempt_callback
+
+            local function update_color(from : string?)
+                if from == "HSV" then
+                    color = Color3.fromHSV(hue, saturation, value)
+                    hex, r, g, b = color:ToHex(), color.R * 255, color.G * 255, color.B * 255
+                    update_hex()
+                    update_rgb()
+                elseif from == "Hex" then
+                    color = Color3.fromHex(hex)
+                    r, g, b, hue, saturation, value = color.R * 255, color.G * 255, color.B * 255, color:ToHSV()
+                    update_rgb()
+                    update_sliders()
+                elseif from == "RGB" then
+                    color = Color3.fromRGB(r, g, b)
+                    hex, hue, saturation, value = color:ToHex(), color:ToHSV()
+                    update_hex()
+                    update_sliders()
+                end
+
+                value_slider_circle.BackgroundColor3 = color
+                value_slider.BackgroundColor3 = Color3.fromHSV(hue, saturation, 1)
+
+                color_circle_icon.BackgroundColor3 = color
+
+                attempt_callback()
+            end
+
+            --# hue / saturation slider.
 
             do
                 local connection
 
                 local function start_dragging()
                     if not connection then
-                        local last = userinputservice:GetMouseLocation()
-                        local connection = runservice.RenderStepped:Connect(function()
+                        userinputservice.MouseIconEnabled = false
+                        connection = runservice.RenderStepped:Connect(function()
                             local current = userinputservice:GetMouseLocation()
-                            local diff = current - last
+                            local change_made = false
 
-                            local x_progressed, y_progressed = diff.X ~= 0, diff.Y ~= 0
+                            local new_hue = math.clamp((current.X - hue_saturation_slider.AbsolutePosition.X) / hue_saturation_slider.AbsoluteSize.X, 0, 1)
 
-                            if x_progressed or y_progressed then
-                                last = current
-                                if x_progressed then
-                                    hue = math.clamp((current.X - hue_saturation_slider.AbsolutePosition.X) / hue_saturation_slider.AbsoluteSize.X + .5, 0, 1)
-                                    update_hue_slider()
-                                end
-                                if y_progressed then
-                                    saturation = math.clamp((current.Y - hue_saturation_slider.AbsolutePosition.Y) / hue_saturation_slider.AbsoluteSize.Y, 0, 1)
-                                    update_saturation_slider()
-                                end
-                                color = Color3.fromHSV(hue, saturation, value)
-                                update_color()
+                            if new_hue ~= hue then
+                                hue = new_hue
+                                update_hue_slider()
+                                change_made = true
                             end
+
+                            local new_saturation = math.clamp((hue_saturation_slider.AbsolutePosition.Y + hue_saturation_slider.AbsoluteSize.Y - current.Y + 36) / hue_saturation_slider.AbsoluteSize.Y, 0, 1)
+                            
+                            if new_saturation ~= saturation then
+                                saturation = new_saturation
+                                update_saturation_slider()
+                                change_made = true
+                            end
+
+                            if change_made then
+                                update_color("HSV")
+                            end
+
                         end)
                     end
                 end
@@ -1484,6 +1538,7 @@ function library.CreateWindow(name)
                     if connection then
                         connection:Disconnect()
                         connection = nil
+                        userinputservice.MouseIconEnabled = true
                     end
                 end
 
@@ -1508,26 +1563,19 @@ function library.CreateWindow(name)
 
             --# value slider.
 
-            local function update_value_slider()
-                value_slider_circle.Position = UDim2.fromScale(value, 0)
-                value_slider_circle.BackgroundColor3 = color
-            end
-
             do
                 local connection
 
                 local function start_dragging()
                     if not connection then
-                        local last = userinputservice:GetMouseLocation().X
-                        local connection = runservice.RenderStepped:Connect(function()
+                        userinputservice.MouseIconEnabled = false
+                        connection = runservice.RenderStepped:Connect(function()
                             local current = userinputservice:GetMouseLocation().X
-                            local diff = current - last
-                            if diff ~= 0 then
-                                last = current
-                                value = math.clamp((current - value_slider.AbsolutePosition.X) / value_slider.AbsoluteSize.X + .5, 0, 1)
-                                color = Color3.fromHSV(hue, saturation, value)
+                            local new_value = math.clamp((current - value_slider.AbsolutePosition.X) / value_slider.AbsoluteSize.X, 0, 1)
+                            if new_value ~= value then
+                                value = new_value
                                 update_value_slider()
-                                update_color()
+                                update_color("HSV")
                             end
                         end)
                     end
@@ -1537,6 +1585,7 @@ function library.CreateWindow(name)
                     if connection then
                         connection:Disconnect()
                         connection = nil
+                        userinputservice.MouseIconEnabled = true
                     end
                 end
 
@@ -1559,27 +1608,16 @@ function library.CreateWindow(name)
                 value_slider.InputEnded:Connect(input_ended)
             end
 
-            --# rgb input
+            --# rgb, hex input
 
-            for _, v in ipairs(rgb_textboxes) do
+            --# scaling, effects
+
+            for _, v in ipairs({rgb_frame["R"], rgb_frame["G"], rgb_frame["B"], hex_textbox}) do
+
+                --# scaling
 
                 v:GetPropertyChangedSignal("Text"):Connect(function()
-                    v.Size = UDim2.fromOffset(v.TextBounds.X, v.Size.Y.Offset)
-                end)
-
-                v.FocusLost:Connect(function(enterPressed)
-                    if enterPressed then
-                        local input = tonumber(v.Text)
-                        if input then
-                            local new_value = math.clamp(input, 0, 255)
-                            if new_value ~= RGB[v.Name] then
-                                RGB[v.Name] = new_value
-                                color = Color3.fromRGB(RGB.R, RGB.G, RGB.B)
-                                
-                            end
-                        end
-                    end
-                    v.Text = value
+                    v.Size = UDim2.fromOffset(v.TextBounds.X + 20, v.Size.Y.Offset)
                 end)
 
                 --# tweening, effects.
@@ -1591,17 +1629,166 @@ function library.CreateWindow(name)
                 v.MouseLeave:Connect(function()
                     tweenservice:Create(v, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.default_color}):Play()
                 end)
+
             end
+
+            --# rgb input
+
+            rgb_frame["R"].FocusLost:Connect(function()
+                local input = tonumber(rgb_frame.R.Text)
+                if input then
+                    local new_r = math.clamp(input, 0, 255)
+                    if new_r ~= r then
+                        r = new_r
+                        update_color("RGB")
+                    end
+                end
+                rgb_frame.R.Text = math.round(r)
+            end)
+
+            rgb_frame["G"].FocusLost:Connect(function()
+                local input = tonumber(rgb_frame.G.Text)
+                if input then
+                    local new_g = math.clamp(input, 0, 255)
+                    if new_g ~= g then
+                        g = new_g
+                        update_color("RGB")
+                    end
+                end
+                rgb_frame.G.Text = math.round(g)
+            end)
+
+            rgb_frame["B"].FocusLost:Connect(function()
+                local input = tonumber(rgb_frame.B.Text)
+                if input then
+                    local new_b = math.clamp(input, 0, 255)
+                    if new_b ~= b then
+                        b = new_b
+                        update_color("RGB")
+                    end
+                end
+                rgb_frame.B.Text = math.round(b)
+            end)
 
             --# hex input
 
-            --# visualisation
+            hex_textbox.FocusLost:Connect(function()
+                local new_hex = hex_textbox.Text
+                if new_hex ~= hex then
+                    hex = new_hex
+                    update_color("Hex")
+                end
+                hex_textbox.Text = hex
+            end)
+
+            --# startup updates
+
+            update_sliders(); update_hex(); update_rgb()
+
+            --# button
+
+            do
+                local hovering, mouse_down, open, debounce = false, false, false, true
+
+                hitbox.MouseEnter:Connect(function()
+                    hovering = true
+                    if debounce then
+                        tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}):Play()
+                    end
+                end)
+
+                hitbox.MouseLeave:Connect(function()
+                    hovering = false
+                    if mouse_down then
+                        mouse_down = false
+                    end
+                    if debounce then
+                        tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}):Play()
+                    end
+                end)
+
+                hitbox.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        mouse_down = true
+                        if debounce then
+                            tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}):Play()
+                        end
+                    end
+                end)
+
+                --# tweening
+
+                do
+
+                    local size_tweens = {
+                        [true] = tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(color_picker.Size.X,UDim.new(0, 350))}),
+                        [false] = tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = color_picker.Size})
+                    }
+                    
+                    hitbox.InputEnded:Connect(function(input)
+                        if input.UserInputType == Enum.UserInputType.MouseButton1 and hovering then
+                            mouse_down = false
+                            if debounce then
+                                tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}):Play()
+                            end
+                            open = not open
+                            size_tweens[open]:Play()
+                        end
+                    end)
+                end
+
+                local function reset_tween()
+                    if mouse_down then
+                        tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}):Play()
+                    elseif hovering then
+                        tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}):Play()
+                    else
+                        tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}):Play()
+                    end
+                end
+
+                attempt_callback = function()
+                    local success, message = pcall(settings.Callback, color)
+                    if not success then
+                        debounce = false
+                        color_picker.Text = "Callback Error"
+                        warn("plue-lib Callback Error:", message)
+                        tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}):Play()
+                        task.wait(2)
+                        input.Text = settings.Name
+                        reset_tween()
+                        debounce = true
+                    end
+                    return success
+                end
+            end
 
             color_picker.Text = settings.Name
             color_picker.Parent = element_holder
 
-            hue_saturation_slider_circle.BackgroundColor3 = settings.CurrentColor
-            
+            color_circle_icon.BackgroundColor3 = color
+
+            --# functions
+
+            local color_picker_functions = {}
+
+            function color_picker_functions.GetCurrentColor()
+                return color
+            end
+
+            function color_picker_functions.Set(new_color)
+                if new_color ~= color then
+                    color = new_color
+                    update_sliders(); update_hex(); update_rgb()
+                    update_color()
+                end
+            end
+
+            function color_picker_functions.Destroy()
+                color_picker:Destroy()
+            end
+
+            return color_picker_functions
         end
 
         --# prompt
@@ -1749,11 +1936,12 @@ tab3.CreateInput({
     end
 })
 
-window.CreateTab("dqwdqw")
-window.CreateTab("KDQWIKDIOQW ")
-window.CreateTab("doqwoldqw")
-window.CreateTab("ı cume")
-window.CreateTab("qwpdwpqldqwpğdpqwldlpqwpğdlwqpğdlqwp")
+tab3.CreateColorPicker({
+    Name = "Cum Color Picker",
+    CurrentColor = Color3.new(1, 0, 0),
+    Callback = function(color)
+    end
+})
 
 --# brav
 
