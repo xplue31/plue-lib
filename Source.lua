@@ -1,31 +1,13 @@
---# pinky finger with cum innit
+local runservice, tweenservice, userinputservice, coregui = game:GetService("RunService"), game:GetService("TweenService"), game:GetService("UserInputService"), game:GetService("CoreGui")
 
-local runservice = game:GetService("RunService")
-local tweenservice = game:GetService("TweenService")
-local userinputservice = game:GetService("UserInputService")
-local textservice = game:GetService("TextService")
-local coregui = game:GetService("CoreGui")
-
---# fr cum.
-
-local assets = game:GetObjects("rbxassetid://12211969190")[1]
-
-local library_holder = coregui:FindFirstChild("plue-lib")
-if not library_holder then
-    library_holder = Instance.new("Folder", coregui)
-    library_holder.Name = "plue-lib"
-end
+local assets, library_holder = game:GetObjects("rbxassetid://12211969190")[1], coregui:FindFirstChild("plue-lib")
+if not library_holder then library_holder = Instance.new("Folder", coregui); library_holder.Name = "plue-lib" end
 
 local notification_holder = library_holder:FindFirstChild("notifications")
-if not notification_holder then
-    notification_holder = assets.NotificationHolder:Clone()
-    notification_holder.Name = "notifications"
-    notification_holder.Parent = library_holder
-end
+if not notification_holder then notification_holder = assets.NotificationHolder:Clone(); notification_holder.Name, notification_holder.Parent = "notifications", library_holder end
 
---# white ass cum
-
-local function make_draggable(pivot, core)
+-- global functions
+local function MakeDraggable(pivot, core)
 	local Dragging, DragInput, MousePos, FramePos = false
 	pivot.InputBegan:Connect(function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -52,39 +34,14 @@ local function make_draggable(pivot, core)
 	end)
 end
 
---# theme stuff
+local function MakeClickable(element, theme, callbacks)
+    
+end
 
-local theme = {
-    element = {
-        hover_color = Color3.fromRGB(45, 45, 45),
-        default_color = Color3.fromRGB(36, 36, 36),
-        interact_color = Color3.fromRGB(125, 125, 125),
-        error_color = Color3.fromRGB(175, 0, 0),
-        dropdown = {
-            option_corner = {
-                default = Color3.fromRGB(62, 62, 62),
-                selected = Color3.fromRGB(187, 197, 255)
-            },
-        },
-    },
-    sub_element = { 
-        hover_color = Color3.fromRGB(32,32,32),
-        default_color = Color3.fromRGB(27,27,27),
-        interact_color = Color3.fromRGB(75, 75, 75),
-        error_color = Color3.fromRGB(124, 0, 0),
-    },
-    tab = {
-        button_default = Color3.fromRGB(150, 150, 150),
-        button_selected = Color3.fromRGB(255, 255, 255)
-    },
-}
-
---# library
-
+-- library
 local library = {}
 
---# notification
-
+-- notification
 --[[
     Settings:
 
@@ -93,40 +50,29 @@ local library = {}
     Duration = <number>,
     SoundId = <number?>
 ]]
-
 function library.Notify(settings)
-
-    --# variables
-            
-    local notification = assets.Notification:Clone()
-
-    task.wait()
-
+    -- variables
+    local notification = assets.Notification:Clone(); task.wait()
     local main = notification.Main
     local color_bar = main.Color
     local label = main.Text
     local shadow = notification.Shadow.DropShadow
 
-    --# setup
-
+    -- setup
     color_bar.BackgroundColor3 = settings.Color
     label.Text = settings.Content
-
     notification.Size = UDim2.fromOffset(1 , notification.Size.Y.Offset)
     notification.Parent = notification_holder
 
-    --# sound
-
+    -- sound
     if settings.SoundId then
         local sound = Instance.new("Sound", notification)
         sound.SoundId = "rbxassetid://" .. settings.SoundId
         sound:Play()
     end
 
-    --# tweens
-
+    -- tweens
     local size_tween = tweenservice:Create(notification, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(label.TextBounds.X + 20, notification.Size.Y.Offset)})
-
     size_tween.Completed:Connect(function()
         task.wait(settings.Duration)
         tweenservice:Create(notification, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(0, notification.Size.Y.Offset)}):Play()
@@ -134,28 +80,16 @@ function library.Notify(settings)
         task.wait(.3)
         notification:Destroy()
     end)
-
     size_tween:Play()
 end
 
---# Window
-
+-- window
 function library.CreateWindow(name)
-
-    --# goofy stuff
-
+    -- destroy previous window(s) with the same name
     local window_name = "[Window] " .. name
+    for _, v in ipairs(library_holder:GetChildren()) do if v.Name == window_name then v:Destroy() end end
 
-    --# clear previous window
-
-    for _, v in ipairs(library_holder:GetChildren()) do
-        if v.Name == window_name then
-            v:Destroy()
-        end
-    end
-
-    --# variables
-
+    -- variables
     local gui = assets.Window.GUI:Clone()
     local core = gui.Core
     local main = core.Main
@@ -169,58 +103,107 @@ function library.CreateWindow(name)
     local menu = main.Menu
     local tablist = menu.Tabs
 
-    --# scaling
+    -- securing the gui
+    if syn and syn.protect_gui then 
+        syn.protect_gui(gui)
+    end
 
+    -- scaling
     tablist.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         tablist.CanvasSize = UDim2.fromOffset(tablist.UIListLayout.AbsoluteContentSize.X, 0)
     end)
 
-    --# set-up
+    -- theme, element tweenings ETC.
+    local Theme = {
+        Element = {
+            Hover = Color3.fromRGB(45, 45, 45),
+            Default = Color3.fromRGB(36, 36, 36),
+            Interact = Color3.fromRGB(125, 125, 125),
+            Error = Color3.fromRGB(175, 0, 0),
+        },
+        SubElement = { 
+            Hover = Color3.fromRGB(32,32,32),
+            Default = Color3.fromRGB(27,27,27),
+            Interact = Color3.fromRGB(75, 75, 75),
+            Error = Color3.fromRGB(124, 0, 0),
+        },
+        Tab = {
+            Button = {
+                Default = Color3.fromRGB(150, 150, 150),
+                Selected = Color3.fromRGB(255, 255, 255)
+            }
+        },
+        Dropdown = {
+            OptionCorner = {
+                Default = Color3.fromRGB(62, 62, 62),
+                Selected = Color3.fromRGB(187, 197, 255)
+            },
+        },
+    }
+    
+    local Tweens = {
+        Element = {
+            Default = function(self)
+                tweenservice:Create(self, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.Default}):Play()
+            end,
+            Hover = function(self)
+                tweenservice:Create(self, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.Hover}):Play()
+            end,
+            Interact = function(self)
+                tweenservice:Create(self, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.Interact}):Play()
+            end,
+            Error = function(self)
+                tweenservice:Create(self, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.Error}):Play()
+            end,
+        },
+        SubElement = {
+            Default = function(self)
+                tweenservice:Create(self, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.SubElement.Default}):Play()
+            end,
+            Hover = function(self)
+                tweenservice:Create(self, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.SubElement.Hover}):Play()
+            end,
+            Interact = function(self)
+                tweenservice:Create(self, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.SubElement.Interact}):Play()
+            end,
+            Error = function(self)
+                tweenservice:Create(self, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.SubElement.Error}):Play()
+            end,
+        },
+    }
 
+    -- setup
+    MakeDraggable(topbar, core)
+
+    topbar.Stuff.Title.Text = name  
     gui.Name = window_name
     gui.Parent = library_holder
 
-    topbar.Stuff.Title.Text = name
-
-    --# make draggable!
-
-    make_draggable(topbar, core)
-
-    --# tab changing
-
+    -- tab changing
     local current_tab , current_tab_button
-
-    local function change_tab(tab, button)
+    local function ChangeTab(tab, button)
         local previous_tab, previous_tab_button = current_tab, current_tab_button
         current_tab, current_tab_button = tab, button
         if previous_tab then
             previous_tab.Visible = false
         end
         if previous_tab_button then
-            tweenservice:Create(previous_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = theme.tab.button_default}):Play()
+            tweenservice:Create(previous_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = Theme.Tab.Button.Default}):Play()
         end
         current_tab.Visible = true
-        tweenservice:Create(current_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = theme.tab.button_selected}):Play()
-        if current_tab_button then
-            tweenservice:Create(current_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = theme.tab.button_selected}):Play()
-        end
+        tweenservice:Create(current_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = Theme.Tab.Button.Selected}):Play()
     end
 
-    --# functions
-
+    -- window methods (functions)
     local window_functions = {}
 
+    -- tab
     function window_functions.CreateTab(name)
-
-        --# variables
-
-        local tab = assets.Window.Tab:Clone()
+        -- variables
+        local tab, button = assets.Window.Tab:Clone(), assets.Window.TabButton:Clone() ; task.wait()
         local element_holder = tab.Main
 
-        local button = assets.Window.TabButton:Clone()
-
-        --# set-up
-
+        -- setup
         button.Text = name
         button.Name = name
         button.Parent = tablist
@@ -230,45 +213,40 @@ function library.CreateWindow(name)
         tab.Visible = false
         tab.Parent = tabholder
 
-        --# check if a tab exist
-
         if not current_tab then
-            change_tab(tab, button)
+            ChangeTab(tab, button)
         end
 
-        --# changing tabs
-
+        -- connections
         button.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 and current_tab ~= tab then
-                change_tab(tab, button)
+                ChangeTab(tab, button)
             end
         end)
-
-        --# scaling
 
         element_holder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             element_holder.CanvasSize = UDim2.fromOffset(0, element_holder.UIListLayout.AbsoluteContentSize.Y + 20)
         end)
         
-        --# functions
-
+        -- tab methods (functions)
         local tab_functions = {}
 
-        --# section
+        function tab_functions.SetAsCurrentTab()
+            if current_tab ~= tab then
+                ChangeTab(tab, button)
+            end
+        end
 
+        -- section
         function tab_functions.CreateSection(name)
-
-            --# variables
-
+            -- variables
             local section = assets.Elements.Section:Clone()
 
-            --# setup
-
+            -- setup
             section.Text = name
             section.Parent = element_holder
 
-            --# functions
-
+            -- section methods (functions)
             local section_functions = {}
 
             function section_functions.Set(name)
@@ -282,27 +260,21 @@ function library.CreateWindow(name)
             return section_functions
         end
 
-        --# label
-
+        -- label
         function tab_functions.CreateLabel(text)
-
-            --# variables
-
+            -- variables
             local label = assets.Elements.Label:Clone()
 
-            --# scaling
-
+            -- scaling
             label:GetPropertyChangedSignal("TextBounds"):Connect(function()
                 label.Size = UDim2.new(label.Size.X, UDim.new(0, label.TextBounds.Y + 10))
             end)
 
-            --# setup
-
+            -- setup
             label.Text = text
             label.Parent = element_holder
 
-            --# functions
-
+            -- label methods (functions)
             local label_functions = {}
 
             function label_functions.Set(text)
@@ -316,27 +288,21 @@ function library.CreateWindow(name)
             return label_functions
         end
 
-        --# warning
-
+        -- warning
         function tab_functions.CreateWarning(text)
-
-            --# variables
-
+            -- variables
             local warning = assets.Elements.Warning:Clone()
 
-            --# scaling
-
+            -- scaling
             warning:GetPropertyChangedSignal("TextBounds"):Connect(function()
                 warning.Size = UDim2.new(warning.Size.X, UDim.new(0, warning.TextBounds.Y + 10))
             end)
 
-            --# setup
-
+            -- setup
             warning.Text = text
             warning.Parent = element_holder
 
-            --# functions
-
+            -- warning methods (functions)
             local warning_functions = {}
 
             function warning_functions.Set(text)
@@ -350,72 +316,52 @@ function library.CreateWindow(name)
             return warning_functions
         end
 
-        --# button
-
+        -- button
         --[[
             Settings:
 
             "Name" = <string>
             "Callback" = <function>
         ]]
-
         function tab_functions.CreateButton(settings)
 
-            --# element variables
-
+            -- variables
             local button = assets.Elements.Button:Clone()
 
-            --# setup
-
+            -- setup
             button.Text = settings.Name
             button.Parent = element_holder
 
-            --# more variables
-
+            -- state variables
             local hovering, mouse_down, debounce = false, false, true
 
-            --# tweens
-
-            local function tween(state)
-                
-            end
-
-            local tweens = {
-                default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
-                hover = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}),
-                interact = tweenservice:Create(button, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
-                error = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
-            }
-
-            local function reset_tween()
+            local function ResetTween()
                 if mouse_down then
-                    tweens.interact:Play()
+                    Tweens.Element.Interact(button)
                 elseif hovering then
-                    tweens.hover:Play()
+                    Tweens.Element.Hover(button)
                 else
-                    tweens.default:Play()
+                    Tweens.Element.Default(button)
                 end
             end
 
-            --# callback stufff
-
-            local function attempt_callback()
+            -- callback
+            local function AttemptCallback()
                 local success, message = pcall(settings.Callback)
                 if not success then
                     debounce = false
                     button.Text = "Callback Error"
                     warn("plue-lib Callback Error:", message)
-                    tweens.error:Play()
+                    Tweens.Element.Error(button)
                     task.wait(2)
                     button.Text = settings.Name
-                    reset_tween()
+                    ResetTween()
                     debounce = true
                 end
                 return success
             end
 
-            --# connection callbacks
-
+            -- connections
             local function on_mouse_enter()
                 hovering = true
                 if debounce then
@@ -452,14 +398,21 @@ function library.CreateWindow(name)
                 end
             end
 
-            --# connections
+            -- connections
 
-            button.MouseEnter:Connect(on_mouse_enter)
-            button.MouseLeave:Connect(on_mouse_leave)
+            button.MouseEnter:Connect(function()
+                hovering = true
+                if debounce then
+                    Tweens.Element.Hover(button)
+                end
+            end)
+            button.MouseLeave:Connect(function()
+                
+            end)
             button.InputBegan:Connect(on_input_began)
             button.InputEnded:Connect(on_input_ended)
 
-            --# functions
+            -- functions
 
             local button_functions = {}
 
@@ -476,7 +429,7 @@ function library.CreateWindow(name)
             return button_functions
         end
 
-        --# toggle
+        -- toggle
 
         --[[
             Settings:
@@ -488,7 +441,7 @@ function library.CreateWindow(name)
 
         function tab_functions.CreateToggle(settings)
 
-            --# setup
+            -- setup
 
             local toggle = assets.Elements.Toggle:Clone()
             
@@ -501,17 +454,17 @@ function library.CreateWindow(name)
             toggle.Text = settings.Name
             toggle.Parent = element_holder
 
-            --# core
+            -- core
 
             local hovering, mouse_down, switch, debounce = false, false, settings.StartValue, true
 
-            --# tween and coloring stuff
+            -- tween and coloring stuff
 
             local tweens = {
-                default = tweenservice:Create(toggle, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
-                hover = tweenservice:Create(toggle, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}),
-                interact = tweenservice:Create(toggle, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
-                error = tweenservice:Create(toggle, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
+                default = tweenservice:Create(toggle, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.default_color}),
+                hover = tweenservice:Create(toggle, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.hover_color}),
+                interact = tweenservice:Create(toggle, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.interact_color}),
+                error = tweenservice:Create(toggle, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.error_color}),
                 checkbox = {
                     [true] = tweenservice:Create(checkbox, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {ImageTransparency  = 0}),
                     [false] = tweenservice:Create(checkbox, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {ImageTransparency  = 1}),
@@ -528,7 +481,7 @@ function library.CreateWindow(name)
                 end
             end
 
-            --# callback stufff
+            -- callback stufff
 
             local function attempt_callback()
                 local success, message = pcall(settings.Callback, switch)
@@ -551,7 +504,7 @@ function library.CreateWindow(name)
                 return attempt_callback()
             end
 
-            --# connection callbacks
+            -- connection callbacks
 
             local function on_mouse_enter()
                 hovering = true
@@ -589,14 +542,14 @@ function library.CreateWindow(name)
                 end
             end
 
-            --# connections
+            -- connections
 
             toggle.MouseEnter:Connect(on_mouse_enter)
             toggle.MouseLeave:Connect(on_mouse_leave)
             toggle.InputBegan:Connect(on_input_began)
             toggle.InputEnded:Connect(on_input_ended)
 
-            --# functions
+            -- functions
 
             local toggle_functions = {}
 
@@ -613,7 +566,7 @@ function library.CreateWindow(name)
             return toggle_functions
         end
 
-        --# slider
+        -- slider
 
         --[[
             Settings:
@@ -628,7 +581,7 @@ function library.CreateWindow(name)
 
         function tab_functions.CreateSlider(settings)
 
-            --# setup
+            -- setup
 
             local slider = assets.Elements.Slider:Clone()
             
@@ -642,26 +595,26 @@ function library.CreateWindow(name)
             slider.Text = settings.Name
             slider.Parent = element_holder
 
-            --# core
+            -- core
 
             local hovering, sliding, progress, range, min_value, max_value, debounce = false, false, math.round(settings.StartValue / settings.Increment) * settings.Increment, math.abs(settings.Range[1] - settings.Range[2]), math.min(unpack(settings.Range)), math.max(unpack(settings.Range)), true
 
-            --# quick seup too
+            -- quick seup too
 
             progress_label.Text = tostring(progress) .. " " .. settings.Suffix or ""
 
-            --# tween and coloring stuff
+            -- tween and coloring stuff
 
             local tweens = {
-                default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
-                error = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
+                default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.Element.default_color}),
+                error = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.Element.error_color}),
                 slider = {
-                    default = tweenservice:Create(main, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.default_color}),
-                    hover = tweenservice:Create(main, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.hover_color}),
+                    default = tweenservice:Create(main, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.SubElement.default_color}),
+                    hover = tweenservice:Create(main, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.SubElement.hover_color}),
                 },
             }
             
-            --# callback stufff
+            -- callback stufff
 
             local function attempt_callback()
                 local success, message = pcall(settings.Callback, progress)
@@ -689,7 +642,7 @@ function library.CreateWindow(name)
                 end
             end
 
-            --# connection callbacks
+            -- connection callbacks
 
             local function on_mouse_enter()
                 hovering = true
@@ -709,7 +662,7 @@ function library.CreateWindow(name)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 and debounce then
                     sliding = true
 
-                    --# bla bla stuff right now bro?
+                    -- bla bla stuff right now bro?
 
                     local last_mouse_x = userinputservice:GetMouseLocation().X
 
@@ -747,14 +700,14 @@ function library.CreateWindow(name)
                 end
             end
 
-            --# connections
+            -- connections
 
             main.MouseEnter:Connect(on_mouse_enter)
             main.MouseLeave:Connect(on_mouse_leave)
             main.InputBegan:Connect(on_input_began)
             main.InputEnded:Connect(on_input_ended)
 
-            --# functions
+            -- functions
 
             local slider_functions = {}
 
@@ -775,7 +728,7 @@ function library.CreateWindow(name)
             return slider_functions
         end
 
-        --# dropdown
+        -- dropdown
 
         --[[
             Settings:
@@ -788,7 +741,7 @@ function library.CreateWindow(name)
 
         function tab_functions.CreateDropdown(settings)
 
-            --# setup
+            -- setup
 
             local dropdown = assets.Elements.Dropdown:Clone()
 
@@ -805,22 +758,22 @@ function library.CreateWindow(name)
             dropdown.Text = settings.Name
             dropdown.Parent = element_holder
 
-            --# scaling stuff over here
+            -- scaling stuff over here
 
             list_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
                 list.CanvasSize = UDim2.new(0, 0, 0, list_layout.AbsoluteContentSize.Y + 10)
             end)
 
-            --# core
+            -- core
 
             local hovering, mouse_down, current_option, current_option_button, open = false, false, settings.CurrentOption, nil, false
 
-            --# tween and coloring stuff
+            -- tween and coloring stuff
 
             local tweens = {
-                default = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
-                hover = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}),
-                interact = tweenservice:Create(dropdown, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
+                default = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.Element.default_color}),
+                hover = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.Element.hover_color}),
+                interact = tweenservice:Create(dropdown, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.Element.interact_color}),
                 dropdown = {
                     [true] = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(dropdown.Size.X, UDim.new(0, 270))}),
                     [false] = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = dropdown.Size}),
@@ -841,7 +794,7 @@ function library.CreateWindow(name)
                 end
             end
 
-            --# callback
+            -- callback
 
             local function attempt_callback()
                 local success, message = pcall(settings.Callback, current_option)
@@ -859,7 +812,7 @@ function library.CreateWindow(name)
                 return attempt_callback()
             end
 
-            --# connection callbacks
+            -- connection callbacks
 
             local function on_mouse_enter()
                 hovering = true
@@ -891,14 +844,14 @@ function library.CreateWindow(name)
                 end
             end
 
-            --# connections
+            -- connections
 
             hitbox.MouseEnter:Connect(on_mouse_enter)
             hitbox.MouseLeave:Connect(on_mouse_leave)
             hitbox.InputBegan:Connect(on_input_began)
             hitbox.InputEnded:Connect(on_input_ended)
 
-            --# CREATING OPTIONS
+            -- CREATING OPTIONS
 
             local function create_option(option)
                 
@@ -908,11 +861,11 @@ function library.CreateWindow(name)
                 button.Text = option
                 button.Parent = list
 
-                --# normal button stuff.
+                -- normal button stuff.
 
                 local hovering, mouse_down, debounce = false, false, true
 
-                --# tween and coloring stuff
+                -- tween and coloring stuff
     
                 local tweens = {
                     default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.default_color}),
@@ -931,7 +884,7 @@ function library.CreateWindow(name)
                     end
                 end
     
-                --# callback stufff
+                -- callback stufff
     
                 local function choose()
                     local success, message = set_option(option, button)
@@ -948,7 +901,7 @@ function library.CreateWindow(name)
                     return success
                 end
     
-                --# connection callbacks
+                -- connection callbacks
     
                 local function on_mouse_enter()
                     hovering = true
@@ -988,7 +941,7 @@ function library.CreateWindow(name)
                     end
                 end
     
-                --# connections
+                -- connections
     
                 button.MouseEnter:Connect(on_mouse_enter)
                 button.MouseLeave:Connect(on_mouse_leave)
@@ -996,13 +949,13 @@ function library.CreateWindow(name)
                 button.InputEnded:Connect(on_input_ended)
             end
 
-            --# setting base options
+            -- setting base options
             
             for _, option in ipairs(settings.Options) do
                 create_option(option)
             end
 
-            --# some other stuff of course
+            -- some other stuff of course
 
             do
                 local current_button = list:FindFirstChild(current_option)
@@ -1012,7 +965,7 @@ function library.CreateWindow(name)
                 end
             end
 
-            --# functions
+            -- functions
 
             local dropdown_functions = {}
 
@@ -1044,9 +997,9 @@ function library.CreateWindow(name)
             return dropdown_functions
         end
 
-        --# input
+        -- input
 
-        --# keybind
+        -- keybind
 
         --[[
             Settings:
@@ -1058,7 +1011,7 @@ function library.CreateWindow(name)
 
         function tab_functions.CreateKeybind(settings)
             
-            --# setup
+            -- setup
 
             local keybind = assets.Elements.Keybind:Clone()
 
@@ -1080,17 +1033,17 @@ function library.CreateWindow(name)
             keybind.Text = settings.Name
             keybind.Parent = element_holder
 
-            --# scaling stuff
+            -- scaling stuff
 
             holder:GetPropertyChangedSignal("TextBounds"):Connect(function()
                 holder.Size = UDim2.fromOffset(holder.TextBounds.X + 20, holder.Size.Y.Offset)
             end)
 
-            --# core
+            -- core
 
             local hovering, mouse_down, bind, binding, debounce = false, false, settings.CurrentBind, false, true
 
-            --# tween and coloring stuff
+            -- tween and coloring stuff
 
             local tweens = {
                 default = tweenservice:Create(keybind, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
@@ -1109,7 +1062,7 @@ function library.CreateWindow(name)
                 end
             end
 
-            --# callback stufff
+            -- callback stufff
 
             local function attempt_callback()
                 local success, message = pcall(settings.Callback)
@@ -1126,7 +1079,7 @@ function library.CreateWindow(name)
                 return success
             end
 
-            --# binding stuff
+            -- binding stuff
 
             local function uis_input_began(input, gameProcessedEvent)
                 if not gameProcessedEvent then
@@ -1135,7 +1088,7 @@ function library.CreateWindow(name)
                             binding = false
                             bind = input.KeyCode
                             local bind_string = userinputservice:GetStringForKeyCode(bind)
-                            if #bind_string ~= 0 then
+                            if bind_string ~= "" and bind_string:gsub("%s+", ""):len() ~= 0 then
                                 holder.Text = bind_string
                             else
                                 holder.Text = bind.Name
@@ -1147,7 +1100,7 @@ function library.CreateWindow(name)
                 end
             end
 
-            --# connection callbacks
+            -- connection callbacks
 
             local function on_mouse_enter()
                 hovering = true
@@ -1184,7 +1137,7 @@ function library.CreateWindow(name)
                 end
             end
 
-            --# connections
+            -- connections
 
             keybind.MouseEnter:Connect(on_mouse_enter)
             keybind.MouseLeave:Connect(on_mouse_leave)
@@ -1197,7 +1150,7 @@ function library.CreateWindow(name)
                 uis_connection:Disconnect()
             end)
 
-            --# functions
+            -- functions
 
             local keybind_functions = {}
 
@@ -1216,7 +1169,7 @@ function library.CreateWindow(name)
             return keybind_functions
         end
 
-        --# input
+        -- input
 
         --[[
             Settings:
@@ -1228,7 +1181,7 @@ function library.CreateWindow(name)
 
         function tab_functions.CreateInput(settings)
             
-            --# setup
+            -- setup
 
             local input = assets.Elements.Input:Clone()
 
@@ -1240,7 +1193,7 @@ function library.CreateWindow(name)
             input.Text = settings.Name
             input.Parent = element_holder
 
-            --# scaling stuff
+            -- scaling stuff
             
             textbox:GetPropertyChangedSignal("Text"):Connect(function()
                 if textbox:IsFocused() then
@@ -1256,15 +1209,15 @@ function library.CreateWindow(name)
 
             holder.Size = UDim2.fromOffset(holder.TextBounds.X + 30, holder.Size.Y.Offset)
 
-            --#dang
+            --dang
 
             textbox.Text = settings.CurrentInput
 
-            --# bruh
+            -- bruh
 
             local hovering, mouse_down, inputting, current_input, debounce = false, false, false, settings.CurrentInput, true
 
-            --# tweening etc
+            -- tweening etc
 
             local tweens = {
                 default = tweenservice:Create(input, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
@@ -1273,7 +1226,7 @@ function library.CreateWindow(name)
                 error = tweenservice:Create(input, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
             }
 
-            --# callback stuff
+            -- callback stuff
 
             local function reset_tween()
                 if mouse_down then
@@ -1313,7 +1266,7 @@ function library.CreateWindow(name)
                 end
             end
 
-            --# connections
+            -- connections
 
             -- inpıttin
 
@@ -1394,7 +1347,7 @@ function library.CreateWindow(name)
 
         end
 
-        --# color picker
+        -- color picker
 
         --[[
             Settings:
@@ -1406,7 +1359,7 @@ function library.CreateWindow(name)
 
         function tab_functions.CreateColorPicker(settings)
 
-            --# variables
+            -- variables
 
             local color_picker = assets.Elements.ColorPicker:Clone()
 
@@ -1425,14 +1378,14 @@ function library.CreateWindow(name)
             local value_slider_circle = value_slider.Button
             local hue_saturation_slider_circle = hue_saturation_slider.Button
 
-            --# setup   
+            -- setup   
 
             local color = settings.CurrentColor
             local hue, saturation, value = color:ToHSV()
             local r, g, b = color.R * 255, color.G * 255, color.B * 255
             local hex = color:ToHex()
 
-            --# hue / saturation updates
+            -- hue / saturation updates
 
             local function update_hue_slider()
                 hue_saturation_slider_circle.Position = UDim2.fromScale(hue, hue_saturation_slider_circle.Position.Y.Scale)
@@ -1444,31 +1397,31 @@ function library.CreateWindow(name)
                 hue_saturation_slider_circle.BackgroundColor3 = Color3.fromHSV(hue, saturation, 1)
             end
 
-            --# value updates
+            -- value updates
 
             local function update_value_slider()
                 value_slider_circle.Position = UDim2.fromScale(value, 0)
             end
 
-            --# all slider updates
+            -- all slider updates
 
             local function update_sliders()
                 update_hue_slider(); update_saturation_slider(); update_value_slider()
             end
 
-            --# rgb updates
+            -- rgb updates
 
             local function update_rgb()
                 rgb_frame.R.Text, rgb_frame.G.Text, rgb_frame.B.Text = math.round(r), math.round(g), math.round(b)
             end
 
-            --# hex updates
+            -- hex updates
 
             local function update_hex()
                 hex_textbox.Text = "#" .. tostring(hex)
             end
 
-            --# callback, color
+            -- callback, color
 
             local attempt_callback
 
@@ -1498,7 +1451,7 @@ function library.CreateWindow(name)
                 attempt_callback()
             end
 
-            --# hue / saturation slider.
+            -- hue / saturation slider.
 
             do
                 local connection
@@ -1561,7 +1514,7 @@ function library.CreateWindow(name)
                 hue_saturation_slider.InputEnded:Connect(input_ended)
             end
 
-            --# value slider.
+            -- value slider.
 
             do
                 local connection
@@ -1608,19 +1561,19 @@ function library.CreateWindow(name)
                 value_slider.InputEnded:Connect(input_ended)
             end
 
-            --# rgb, hex input
+            -- rgb, hex input
 
-            --# scaling, effects
+            -- scaling, effects
 
             for _, v in ipairs({rgb_frame["R"], rgb_frame["G"], rgb_frame["B"], hex_textbox}) do
 
-                --# scaling
+                -- scaling
 
                 v:GetPropertyChangedSignal("Text"):Connect(function()
                     v.Size = UDim2.fromOffset(v.TextBounds.X + 20, v.Size.Y.Offset)
                 end)
 
-                --# tweening, effects.
+                -- tweening, effects.
 
                 v.MouseEnter:Connect(function()
                     tweenservice:Create(v, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.hover_color}):Play()
@@ -1632,7 +1585,7 @@ function library.CreateWindow(name)
 
             end
 
-            --# rgb input
+            -- rgb input
 
             rgb_frame["R"].FocusLost:Connect(function()
                 local input = tonumber(rgb_frame.R.Text)
@@ -1670,7 +1623,7 @@ function library.CreateWindow(name)
                 rgb_frame.B.Text = math.round(b)
             end)
 
-            --# hex input
+            -- hex input
 
             hex_textbox.FocusLost:Connect(function()
                 local new_hex = hex_textbox.Text
@@ -1681,11 +1634,11 @@ function library.CreateWindow(name)
                 hex_textbox.Text = hex
             end)
 
-            --# startup updates
+            -- startup updates
 
             update_sliders(); update_hex(); update_rgb()
 
-            --# button
+            -- button
 
             do
                 local hovering, mouse_down, open, debounce = false, false, false, true
@@ -1716,7 +1669,7 @@ function library.CreateWindow(name)
                     end
                 end)
 
-                --# tweening
+                -- tweening
 
                 do
 
@@ -1768,7 +1721,7 @@ function library.CreateWindow(name)
 
             color_circle_icon.BackgroundColor3 = color
 
-            --# functions
+            -- functions
 
             local color_picker_functions = {}
 
@@ -1791,9 +1744,9 @@ function library.CreateWindow(name)
             return color_picker_functions
         end
 
-        --# prompt
+        -- prompt
 
-        --# destroy
+        -- destroy
 
         function tab_functions.Destroy()
             button:Destroy()
@@ -1806,7 +1759,7 @@ function library.CreateWindow(name)
         return tab_functions
     end
 
-    --# settings tab
+    -- settings tab
 
     local settings_tab = window_functions.CreateTab("window_settings")
 
@@ -1823,13 +1776,13 @@ function library.CreateWindow(name)
 
     settings_button.Activated:Connect(function()
         if current_tab ~= settings_tab then
-            change_tab(settings_tab)
+            ChangeTab(settings_tab)
         end
     end)
 
-    --# buttons
+    -- buttons
 
-    --# nigga cum
+    -- nigga cum
 
     function window_functions.ToggleWindow(toggle)
         core.Visible = toggle
@@ -1847,7 +1800,7 @@ function library.CreateWindow(name)
         end
     end)
 
-    --# final product
+    -- final product
 
     function window_functions.Destroy()
         gui:Destroy()
@@ -1856,9 +1809,9 @@ function library.CreateWindow(name)
     return window_functions
 end
 
---# end of cum
+----------------------------------------------------------------------------------------------------------------------------
 
---# test
+-- test
 
 local window = library.CreateWindow("cum")
 local tab1, tab2, tab3 = window.CreateTab("gay porn"), window.CreateTab("movies"), window.CreateTab("nigger stuff")
@@ -1923,7 +1876,8 @@ tab3.CreateButton({
         library.Notify({
             Content = "Very cool stuff right here ma boy!",
             Duration = 5,
-            Color = Color3.fromRGB(255, 65, 65)
+            Color = Color3.fromRGB(255, 65, 65),
+            SoundId = "6026984224"
         })
     end
 })
@@ -1943,6 +1897,6 @@ tab3.CreateColorPicker({
     end
 })
 
---# brav
+-- brav
 
 return library
