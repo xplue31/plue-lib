@@ -34,8 +34,123 @@ local function MakeDraggable(pivot, core)
 	end)
 end
 
-local function MakeClickable(element, theme, callbacks)
-    
+-- callback param:
+--[[
+    table:
+
+    On[event name] = {callback, bypassDebounce}
+]]
+local function MakeInteractable(element, tweens, callbacks)
+    -- variables
+    local hovering, mouse_down, debounce = false, false, true
+
+    local function SetDebounce(val)
+        debounce = val
+    end
+
+    local function ResetTween()
+        if mouse_down then
+            tweens.Interact(element)
+        elseif hovering then
+            tweens.Hover(element)
+        else
+            tweens.Default(element)
+        end
+    end
+
+    local function OnError(message)
+        SetDebounce(false)
+        element.Text = "Callback Error"
+        warn("plue-lib Callback Error:", message)
+        tweens.Error(element)
+        task.wait(2)
+        button.Text = settings.Name
+        ResetTween()
+        SetDebounce(true)
+    end
+
+    -- connections
+    local function on_mouse_enter()
+        hovering = true
+        if debounce then
+            tweens.Hover(element)
+        elseif not callbacks.OnMouseEnter or not callbacks.OnMouseEnter.BypassDebounce then
+            return
+        end
+        callbacks.OnMouseEnter.Callback(SetDebounce, OnError)
+    end
+
+    local function on_mouse_leave()
+        hovering = false
+        if debounce then
+            tweens.default:Play()
+        end
+        if mouse_down then
+            mouse_down = false
+        end
+    end 
+
+    local function on_input_began(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            mouse_down = true
+            if debounce then
+                tweens.interact:Play()
+            end
+        end
+    end
+
+    local function on_input_ended(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
+            mouse_down = false
+            if debounce then
+                tweens.hover:Play()
+                attempt_callback()
+            end
+        end
+    end
+    -- connections
+
+    element.MouseEnter:Connect(function()
+        hovering = true
+        if debounce then
+            tweens.Hover(element)
+        elseif not callbacks.Hover or not callbacks.Hover.BypassDebounce then
+            return
+        end
+        callbacks.Hover.Callback(SetDebounce, OnError)
+    end)
+
+    button.MouseLeave:Connect(function()
+        hovering = false
+        if debounce then
+            tweens.Default(element)
+        elseif not callbacks.HoverEnded or not callbacks.HoverEnded.BypassDebounce then
+            return
+        end
+        callbacks.HoverEnded.Callback(SetDebounce, OnError)
+    end)
+    button.InputBegan:Connect(function(input)
+        in input.UserInputType == Enum.UserInputType.MouseButton1 then
+            mouse_down = true
+            if debounce then
+                tweens.Interact(element)
+            elseif not callbacks.Interact or not callbacks.Interact.BypassDebounce then
+                return
+            end
+            callbacks.Interact.Callback(SetDebounce, OnError)
+        end
+    end)
+    button.InputEnded:Connect(function(input)
+        in input.UserInputType == Enum.UserInputType.MouseButton1 then
+            mouse_down = false
+            if debounce then
+                tweens.Interact(element)
+            elseif not callbacks.Interact or not callbacks.Interact.BypassDebounce then
+                return
+            end
+            callbacks.Interact.Callback(SetDebounce, OnError)
+        end
+    end)
 end
 
 -- library
@@ -86,7 +201,7 @@ end
 -- window
 function library.CreateWindow(name)
     -- destroy previous window(s) with the same name
-    local window_name = "[Window] " .. name
+    local window_name = "$" .. name
     for _, v in ipairs(library_holder:GetChildren()) do if v.Name == window_name then v:Destroy() end end
 
     -- variables
