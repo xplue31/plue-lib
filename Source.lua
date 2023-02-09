@@ -40,6 +40,34 @@ end
 
     On[event name] = {callback, bypassDebounce}
 ]]
+
+local function MakeHoverable(element, tweens, callbacks)
+    local enabled = true
+    if callbacks then
+        element.MouseEnter:Connect(function()
+            if enabled then
+                callbacks.HoverBegan()
+            end
+        end)
+    else
+
+    end
+    return {
+        
+        Disable = function()
+            enabled = false
+        end, 
+
+        Enable = function()
+            enabled = true
+        end
+    }
+end
+
+local function MakeClickable()
+    
+end
+
 local function MakeInteractable(element, tweens, callbacks)
     -- variables
     local hovering, mouse_down, debounce = false, false, true
@@ -137,7 +165,7 @@ local function MakeInteractable(element, tweens, callbacks)
             elseif not callbacks.Interact or not callbacks.Interact.BypassDebounce then
                 return
             end
-            callbacks.Interact.Callback(SetDebounce, OnError)
+            callbacks.InteractBegan.Callback(SetDebounce, OnError)
         end
     end)
     button.InputEnded:Connect(function(input)
@@ -148,7 +176,7 @@ local function MakeInteractable(element, tweens, callbacks)
             elseif not callbacks.Interact or not callbacks.Interact.BypassDebounce then
                 return
             end
-            callbacks.Interact.Callback(SetDebounce, OnError)
+            callbacks.InteractEnded.Callback(SetDebounce, OnError)
         end
     end)
 end
