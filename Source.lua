@@ -41,40 +41,9 @@ end
     On[event name] = {callback, bypassDebounce}
 ]]
 
-local function MakeHoverable(element, tweens, callbacks)
-    local enabled = true
-    if callbacks then
-        element.MouseEnter:Connect(function()
-            if enabled then
-                callbacks.HoverBegan()
-            end
-        end)
-    else
-
-    end
-    return {
-        
-        Disable = function()
-            enabled = false
-        end, 
-
-        Enable = function()
-            enabled = true
-        end
-    }
-end
-
-local function MakeClickable()
-    
-end
-
-local function MakeInteractable(element, tweens, callbacks)
+local function ElementConstructor(element, tweens, callbacks)
     -- variables
-    local hovering, mouse_down, debounce = false, false, true
-
-    local function SetDebounce(val)
-        debounce = val
-    end
+    local hovering, mouse_down, locked = false, false, true
 
     local function ResetTween()
         if mouse_down then
@@ -87,14 +56,14 @@ local function MakeInteractable(element, tweens, callbacks)
     end
 
     local function OnError(message)
-        SetDebounce(false)
+        debounce = false
         element.Text = "Callback Error"
         warn("plue-lib Callback Error:", message)
         tweens.Error(element)
         task.wait(2)
         button.Text = settings.Name
         ResetTween()
-        SetDebounce(true)
+        debounce = true
     end
 
     -- connections
