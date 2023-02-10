@@ -34,16 +34,9 @@ local function MakeDraggable(pivot, core)
 	end)
 end
 
--- callback param:
---[[
-    table:
-
-    On[event name] = {callback, bypassDebounce}
-]]
-
-local function ElementConstructor(element, tweens, callbacks)
+local function InteractableElementConstructor(element, tweens)
     -- variables
-    local hovering, mouse_down, locked = false, false, true
+    local hovering, mouse_down, debounce = false, false, true
 
     local function ResetTween()
         if mouse_down then
@@ -55,99 +48,72 @@ local function ElementConstructor(element, tweens, callbacks)
         end
     end
 
-    local function OnError(message)
-        debounce = false
-        element.Text = "Callback Error"
-        warn("plue-lib Callback Error:", message)
-        tweens.Error(element)
-        task.wait(2)
-        button.Text = settings.Name
-        ResetTween()
-        debounce = true
+    local function AttemptCallback(callback, ...)
+        local success, message = pcall(callback, ...)
+        if not success then
+            debounce = false
+            element.Text = "Callback Error"
+            warn("plue-lib Callback Error:", message)
+            tweens.Error(element)
+            task.delay(2, function()
+                element.Text = element.Name
+                ResetTween()
+                debounce = true
+            end)
+        end
+        return success
     end
+    
+    -- callback holder
+    local callbacks = {}
 
     -- connections
-    local function on_mouse_enter()
-        hovering = true
-        if debounce then
-            tweens.Hover(element)
-        elseif not callbacks.OnMouseEnter or not callbacks.OnMouseEnter.BypassDebounce then
-            return
-        end
-        callbacks.OnMouseEnter.Callback(SetDebounce, OnError)
-    end
-
-    local function on_mouse_leave()
-        hovering = false
-        if debounce then
-            tweens.default:Play()
-        end
-        if mouse_down then
-            mouse_down = false
-        end
-    end 
-
-    local function on_input_began(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            mouse_down = true
-            if debounce then
-                tweens.interact:Play()
-            end
-        end
-    end
-
-    local function on_input_ended(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
-            mouse_down = false
-            if debounce then
-                tweens.hover:Play()
-                attempt_callback()
-            end
-        end
-    end
-    -- connections
-
     element.MouseEnter:Connect(function()
         hovering = true
         if debounce then
             tweens.Hover(element)
-        elseif not callbacks.Hover or not callbacks.Hover.BypassDebounce then
-            return
         end
-        callbacks.Hover.Callback(SetDebounce, OnError)
+        if callbacks.OnHover then
+            callbacks.OnHover(debounce)
+        end
     end)
 
-    button.MouseLeave:Connect(function()
+    element.MouseLeave:Connect(function()
         hovering = false
+        mouse_down = false
         if debounce then
             tweens.Default(element)
-        elseif not callbacks.HoverEnded or not callbacks.HoverEnded.BypassDebounce then
-            return
         end
-        callbacks.HoverEnded.Callback(SetDebounce, OnError)
+        if callbacks.OnHoverEnd then
+            callbacks.OnHoverEnd(debounce)
+        end
     end)
-    button.InputBegan:Connect(function(input)
-        in input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+    element.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
             mouse_down = true
             if debounce then
                 tweens.Interact(element)
-            elseif not callbacks.Interact or not callbacks.Interact.BypassDebounce then
-                return
             end
-            callbacks.InteractBegan.Callback(SetDebounce, OnError)
+            if callbacks.InteractBegan then
+                callbacks.InteractBegan(debounce)
+            end
         end
     end)
-    button.InputEnded:Connect(function(input)
-        in input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+    element.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and hovering then
             mouse_down = false
             if debounce then
-                tweens.Interact(element)
-            elseif not callbacks.Interact or not callbacks.Interact.BypassDebounce then
-                return
+                tweens.Default(element)
             end
-            callbacks.InteractEnded.Callback(SetDebounce, OnError)
+            if callbacks.InteractEnded then
+                callbacks.InteractEnded(debounce)
+            end
         end
     end)
+
+    return callbacks, AttemptCallback
 end
 
 -- library
@@ -440,89 +406,20 @@ function library.CreateWindow(name)
             -- variables
             local button = assets.Elements.Button:Clone()
 
-            -- setup
+            -- logic
+            local Callbacks, AttemptCallback = InteractableElementConstructor(button, Tweens.Element)
+
+            -- connections
+            Callbacks.InteractEnded = function(debounce)
+                if debounce then
+                    AttemptCallback(settings.Callback)
+                end
+            end
+
+            -- visualisation
+            button.Name = settings.Name
             button.Text = settings.Name
             button.Parent = element_holder
-
-            -- state variables
-            local hovering, mouse_down, debounce = false, false, true
-
-            local function ResetTween()
-                if mouse_down then
-                    Tweens.Element.Interact(button)
-                elseif hovering then
-                    Tweens.Element.Hover(button)
-                else
-                    Tweens.Element.Default(button)
-                end
-            end
-
-            -- callback
-            local function AttemptCallback()
-                local success, message = pcall(settings.Callback)
-                if not success then
-                    debounce = false
-                    button.Text = "Callback Error"
-                    warn("plue-lib Callback Error:", message)
-                    Tweens.Element.Error(button)
-                    task.wait(2)
-                    button.Text = settings.Name
-                    ResetTween()
-                    debounce = true
-                end
-                return success
-            end
-
-            -- connections
-            local function on_mouse_enter()
-                hovering = true
-                if debounce then
-                    tweens.hover:Play()
-                end
-            end
-
-            local function on_mouse_leave()
-                hovering = false
-                if debounce then
-                    tweens.default:Play()
-                end
-                if mouse_down then
-                    mouse_down = false
-                end
-            end
-
-            local function on_input_began(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    mouse_down = true
-                    if debounce then
-                        tweens.interact:Play()
-                    end
-                end
-            end
-
-            local function on_input_ended(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
-                    mouse_down = false
-                    if debounce then
-                        tweens.hover:Play()
-                        attempt_callback()
-                    end
-                end
-            end
-
-            -- connections
-
-            button.MouseEnter:Connect(function()
-                hovering = true
-                if debounce then
-                    Tweens.Element.Hover(button)
-                end
-            end)
-            button.MouseLeave:Connect(function()
-                
-            end)
-            button.InputBegan:Connect(on_input_began)
-            button.InputEnded:Connect(on_input_ended)
 
             -- functions
 
@@ -530,7 +427,7 @@ function library.CreateWindow(name)
 
             function button_functions.Click()
                 if debounce then
-                    task.spawn(attempt_callback)
+                    AttemptCallback(settings.Callback)
                 end
             end
 
@@ -553,18 +450,9 @@ function library.CreateWindow(name)
 
         function tab_functions.CreateToggle(settings)
 
-            -- setup
-
-            local toggle = assets.Elements.Toggle:Clone()
-            
-            task.wait()
-
+            -- variables
+            local toggle = assets.Elements.Toggle:Clone(); task.wait()
             local checkbox = toggle.CheckBox
-
-            checkbox.ImageTransparency = settings.StartValue and 0 or 1
-
-            toggle.Text = settings.Name
-            toggle.Parent = element_holder
 
             -- core
 
@@ -583,65 +471,10 @@ function library.CreateWindow(name)
                 },
             }
 
-            local function reset_tween()
-                if mouse_down then
-                    tweens.interact:Play()
-                elseif hovering then
-                    tweens.hover:Play()
-                else
-                    tweens.default:Play()
-                end
-            end
-
-            -- callback stufff
-
-            local function attempt_callback()
-                local success, message = pcall(settings.Callback, switch)
-                if not success then
-                    debounce = false
-                    button.Text = "Callback Error"
-                    warn("plue-lib Callback Error:", message)
-                    tweens.error:Play()
-                    task.wait(2)
-                    button.Text = settings.Name
-                    reset_tween()
-                    debounce = true
-                end
-                return success
-            end
-
             local function set_switch(value)
                 switch = value
                 tweens.checkbox[switch]:Play()
                 return attempt_callback()
-            end
-
-            -- connection callbacks
-
-            local function on_mouse_enter()
-                hovering = true
-                if debounce then
-                    tweens.hover:Play()
-                end
-            end
-
-            local function on_mouse_leave()
-                hovering = false
-                if debounce then
-                    tweens.default:Play()
-                end
-                if mouse_down then
-                    mouse_down = false
-                end
-            end
-
-            local function on_input_began(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and hovering then
-                    mouse_down = true
-                    if debounce then
-                        tweens.interact:Play()
-                    end
-                end
             end
 
             local function on_input_ended(input)
@@ -654,15 +487,14 @@ function library.CreateWindow(name)
                 end
             end
 
-            -- connections
+            -- visualisation
+            checkbox.ImageTransparency = switch and 0 or 1
 
-            toggle.MouseEnter:Connect(on_mouse_enter)
-            toggle.MouseLeave:Connect(on_mouse_leave)
-            toggle.InputBegan:Connect(on_input_began)
-            toggle.InputEnded:Connect(on_input_ended)
+            toggle.Name = settings.Name
+            toggle.Text = settings.Name
+            toggle.Parent = element_holder
 
             -- functions
-
             local toggle_functions = {}
 
             function toggle_functions.Set(value)
