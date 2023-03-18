@@ -1,1846 +1,563 @@
-local runservice, tweenservice, userinputservice, coregui = game:GetService("RunService"), game:GetService("TweenService"), game:GetService("UserInputService"), game:GetService("CoreGui")
-
-local assets, library_holder = game:GetObjects("rbxassetid://12211969190")[1], coregui:FindFirstChild("plue-lib")
-if not library_holder then library_holder = Instance.new("Folder", coregui); library_holder.Name = "plue-lib" end
-
-local notification_holder = library_holder:FindFirstChild("notifications")
-if not notification_holder then notification_holder = assets.NotificationHolder:Clone(); notification_holder.Name, notification_holder.Parent = "notifications", library_holder end
-
--- global functions
-local function MakeDraggable(pivot, core)
-	local Dragging, DragInput, MousePos, FramePos = false
-	pivot.InputBegan:Connect(function(Input)
-		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-			Dragging = true
-			MousePos = Input.Position
-			FramePos = core.Position
-			Input.Changed:Connect(function()
-				if Input.UserInputState == Enum.UserInputState.End then
-					Dragging = false
-				end
-			end)
-		end
-	end)
-	pivot.InputChanged:Connect(function(Input)
-		if Input.UserInputType == Enum.UserInputType.MouseMovement then
-			DragInput = Input
-		end
-	end)
-	userinputservice.InputChanged:Connect(function(Input)
-		if Input == DragInput and Dragging then
-			local Delta = Input.Position - MousePos
-			tweenservice:Create(core, TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position  = UDim2.new(FramePos.X.Scale,FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)}):Play()
-		end
-	end)
+local wait = task.wait
+local runservice = game:GetService("RunService")
+local coregui = game:GetService("CoreGui")
+local uis = game:GetService("UserInputService")
+local assets = game:GetObjects("rbxassetid://12552643516")[1]; wait()
+local gui_template = assets.Gui
+local tab_template = assets.Tab
+local color_picker_panel = assets.ColorPickerPanel
+local element_templates = assets.BasicElements
+local button_template = element_templates.Button
+local dropdown_template = element_templates.Dropdown
+local slider_template = element_templates.Slider
+local label_template = element_templates.Label
+local dropdown_button_template = element_templates.DropdownButton
+local multi_element_templates = assets.MultiElements
+local multi_element_frame_template = multi_element_templates.MultiElement
+local input_box_template = multi_element_templates.InputBox
+local color_picker_box_template = multi_element_templates.ColorPickerBox
+local keybind_box_template = multi_element_templates.KeybindBox
+local toggle_box_template = multi_element_templates.ToggleBox
+local label_multi_element_version_template = multi_element_templates.Label
+local theme_update_callbacks = {}
+local function better_get_string_for_keycode(keycode)
+    if typeof(keycode) ~= "EnumItem" then return "" end
+    local fkdfkkkdfjgkdfjgjdf = uis:GetStringForKeyCode(keycode)
+    if fkdfkkkdfjgkdfjgjdf ~= "" and fkdfkkkdfjgkdfjgjdf:gsub("%s+", "") ~= "" then
+        return fkdfkkkdfjgkdfjgjdf
+    else
+        return keycode.Name
+    end
 end
-
-local function InteractableElementConstructor(element, tweens)
-    -- variables
-    local hovering, mouse_down, debounce = false, false, true
-
-    local function ResetTween()
-        if mouse_down then
-            tweens.Interact(element)
-        elseif hovering then
-            tweens.Hover(element)
-        else
-            tweens.Default(element)
+local function attempt_callback(callback, ...)
+    local s, m = pcall(callback, ...)
+    if not s then
+        warn("callback error with the following arguments:", ..., "and the message:", m)
+    end
+    return s
+end
+return function(name, default_keybind)
+    for _, v in ipairs(coregui:GetChildren()) do
+        if v.Name == "iciciikmhkmjutygh" then
+            v:Destroy()
         end
     end
-
-    local function AttemptCallback(callback, ...)
-        local success, message = pcall(callback, ...)
-        if not success then
-            debounce = false
-            element.Text = "Callback Error"
-            warn("plue-lib Callback Error:", message)
-            tweens.Error(element)
-            task.delay(2, function()
-                element.Text = element.Name
-                ResetTween()
-                debounce = true
-            end)
-        end
-        return success
-    end
-    
-    -- callback holder
-    local callbacks = {}
-
-    -- connections
-    element.MouseEnter:Connect(function()
-        hovering = true
-        if debounce then
-            tweens.Hover(element)
-        end
-        if callbacks.OnHover then
-            callbacks.OnHover(debounce)
-        end
-    end)
-
-    element.MouseLeave:Connect(function()
-        hovering = false
-        mouse_down = false
-        if debounce then
-            tweens.Default(element)
-        end
-        if callbacks.OnHoverEnd then
-            callbacks.OnHoverEnd(debounce)
-        end
-    end)
-
-    element.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            mouse_down = true
-            if debounce then
-                tweens.Interact(element)
-            end
-            if callbacks.InteractBegan then
-                callbacks.InteractBegan(debounce)
-            end
-        end
-    end)
-
-    element.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 and hovering then
-            mouse_down = false
-            if debounce then
-                tweens.Default(element)
-            end
-            if callbacks.InteractEnded then
-                callbacks.InteractEnded(debounce)
-            end
-        end
-    end)
-
-    return callbacks, AttemptCallback
-end
-
--- library
-local library = {}
-
--- notification
---[[
-    Settings:
-
-    Content = <string>,
-    Color = <color3>,
-    Duration = <number>,
-    SoundId = <number?>
-]]
-function library.Notify(settings)
-    -- variables
-    local notification = assets.Notification:Clone(); task.wait()
-    local main = notification.Main
-    local color_bar = main.Color
-    local label = main.Text
-    local shadow = notification.Shadow.DropShadow
-
-    -- setup
-    color_bar.BackgroundColor3 = settings.Color
-    label.Text = settings.Content
-    notification.Size = UDim2.fromOffset(1 , notification.Size.Y.Offset)
-    notification.Parent = notification_holder
-
-    -- sound
-    if settings.SoundId then
-        local sound = Instance.new("Sound", notification)
-        sound.SoundId = "rbxassetid://" .. settings.SoundId
-        sound:Play()
-    end
-
-    -- tweens
-    local size_tween = tweenservice:Create(notification, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(label.TextBounds.X + 20, notification.Size.Y.Offset)})
-    size_tween.Completed:Connect(function()
-        task.wait(settings.Duration)
-        tweenservice:Create(notification, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(0, notification.Size.Y.Offset)}):Play()
-        tweenservice:Create(shadow, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {ImageTransparency = 1}):Play()
-        task.wait(.3)
-        notification:Destroy()
-    end)
-    size_tween:Play()
-end
-
--- window
-function library.CreateWindow(name)
-    -- destroy previous window(s) with the same name
-    local window_name = "$" .. name
-    for _, v in ipairs(library_holder:GetChildren()) do if v.Name == window_name then v:Destroy() end end
-
-    -- variables
-    local gui = assets.Window.GUI:Clone()
-    local core = gui.Core
-    local main = core.Main
-
-    local topbar = main.Bar
-    local settings_button = topbar.Stuff.SettingsButton
-    local close_button = topbar.Stuff.CloseButton
-
-    local tabholder = main.TabHolder
-
-    local menu = main.Menu
-    local tablist = menu.Tabs
-
-    -- securing the gui
-    if syn and syn.protect_gui then 
+    local gui = gui_template:Clone(); wait()
+    if syn and syn.protect_gui then
         syn.protect_gui(gui)
     end
-
-    -- scaling
-    tablist.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        tablist.CanvasSize = UDim2.fromOffset(tablist.UIListLayout.AbsoluteContentSize.X, 0)
-    end)
-
-    -- theme, element tweenings ETC.
-    local Theme = {
-        Element = {
-            Hover = Color3.fromRGB(45, 45, 45),
-            Default = Color3.fromRGB(36, 36, 36),
-            Interact = Color3.fromRGB(125, 125, 125),
-            Error = Color3.fromRGB(175, 0, 0),
-        },
-        SubElement = { 
-            Hover = Color3.fromRGB(32,32,32),
-            Default = Color3.fromRGB(27,27,27),
-            Interact = Color3.fromRGB(75, 75, 75),
-            Error = Color3.fromRGB(124, 0, 0),
-        },
-        Tab = {
-            Button = {
-                Default = Color3.fromRGB(150, 150, 150),
-                Selected = Color3.fromRGB(255, 255, 255)
-            }
-        },
-        Dropdown = {
-            OptionCorner = {
-                Default = Color3.fromRGB(62, 62, 62),
-                Selected = Color3.fromRGB(187, 197, 255)
-            },
-        },
-    }
-    
-    local Tweens = {
-        Element = {
-            Default = function(self)
-                tweenservice:Create(self, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.Default}):Play()
-            end,
-            Hover = function(self)
-                tweenservice:Create(self, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.Hover}):Play()
-            end,
-            Interact = function(self)
-                tweenservice:Create(self, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.Interact}):Play()
-            end,
-            Error = function(self)
-                tweenservice:Create(self, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.Error}):Play()
-            end,
-        },
-        SubElement = {
-            Default = function(self)
-                tweenservice:Create(self, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.SubElement.Default}):Play()
-            end,
-            Hover = function(self)
-                tweenservice:Create(self, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.SubElement.Hover}):Play()
-            end,
-            Interact = function(self)
-                tweenservice:Create(self, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.SubElement.Interact}):Play()
-            end,
-            Error = function(self)
-                tweenservice:Create(self, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.SubElement.Error}):Play()
-            end,
-        },
-    }
-
-    -- setup
-    MakeDraggable(topbar, core)
-
-    topbar.Stuff.Title.Text = name  
-    gui.Name = window_name
-    gui.Parent = library_holder
-
-    -- tab changing
-    local current_tab , current_tab_button
-    local function ChangeTab(tab, button)
-        local previous_tab, previous_tab_button = current_tab, current_tab_button
-        current_tab, current_tab_button = tab, button
-        if previous_tab then
-            previous_tab.Visible = false
+    gui.NameLabel.Text = name
+    gui.Name, gui.Parent = "iciciikmhkmjutygh", coregui
+    local gui_keybind_label = gui.KeybindLabel
+    local gui_keybind_template_text = "press %s to toggle gui"
+    gui_keybind_label.Text = gui_keybind_template_text:format(better_get_string_for_keycode(default_keybind))
+    local function create_tab(name, image_id)
+        local tab = tab_template:Clone(); wait()
+        local bar = tab.Bar
+        local close_button = bar.Close
+        local icon = bar.Icon
+        local tab_name_label = bar.TabName
+        local element_holder = tab.ElementHolder
+        if image_id then
+            icon.Image = "rbxassetid://" .. image_id
+        else
+            icon.Image = nil
         end
-        if previous_tab_button then
-            tweenservice:Create(previous_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = Theme.Tab.Button.Default}):Play()
-        end
-        current_tab.Visible = true
-        tweenservice:Create(current_tab_button, TweenInfo.new(.2, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {TextColor3 = Theme.Tab.Button.Selected}):Play()
-    end
-
-    -- window methods (functions)
-    local window_functions = {}
-
-    -- tab
-    function window_functions.CreateTab(name)
-        -- variables
-        local tab, button = assets.Window.Tab:Clone(), assets.Window.TabButton:Clone() ; task.wait()
-        local element_holder = tab.Main
-
-        -- setup
-        button.Text = name
-        button.Name = name
-        button.Parent = tablist
-        button.Size = UDim2.fromOffset(button.TextBounds.X, button.Size.Y.Offset)
-
-        tab.Name = name
-        tab.Visible = false
-        tab.Parent = tabholder
-
-        if not current_tab then
-            ChangeTab(tab, button)
-        end
-
-        -- connections
-        button.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 and current_tab ~= tab then
-                ChangeTab(tab, button)
+        do
+            local function kbbkgbjgjbg(cvjfg)
+                cvjfg:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+                    local vjfjvf = cvjfg.AbsoluteSize.X 
+                    if vjfjvf > tab.AbsoluteSize.X then
+                        tab.Size = UDim2.fromOffset(vjfjvf, tab.Size.Y.Offset)
+                    end
+                end)
             end
+            kbbkgbjgjbg(element_holder)
+            kbbkgbjgjbg(bar)
+        end
+        do
+            local ckkdfj = Instance.new("UISizeConstraint")
+            local function k()
+                local y = gui.AbsoluteSize.Y
+                ckkdfj.MaxSize = Vector2.new(math.huge, y - y * .02 - 40)
+            end
+            gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(k)
+            k()
+            ckkdfj.Parent = element_holder
+        end
+        tab.Size = UDim2.fromOffset(300, 25)
+        close_button.MouseButton1Click:Connect(function()
+            element_holder.Visible = not element_holder.Visible
         end)
-
-        element_holder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            element_holder.CanvasSize = UDim2.fromOffset(0, element_holder.UIListLayout.AbsoluteContentSize.Y + 20)
-        end)
-        
-        -- tab methods (functions)
-        local tab_functions = {}
-
-        function tab_functions.SetAsCurrentTab()
-            if current_tab ~= tab then
-                ChangeTab(tab, button)
-            end
-        end
-
-        -- section
-        function tab_functions.CreateSection(name)
-            -- variables
-            local section = assets.Elements.Section:Clone()
-
-            -- setup
-            section.Text = name
-            section.Parent = element_holder
-
-            -- section methods (functions)
-            local section_functions = {}
-
-            function section_functions.Set(name)
-                section.Text = name
-            end
-
-            function section_functions.Destroy()
-                section:Destroy()
-            end
-
-            return section_functions
-        end
-
-        -- label
-        function tab_functions.CreateLabel(text)
-            -- variables
-            local label = assets.Elements.Label:Clone()
-
-            -- scaling
-            label:GetPropertyChangedSignal("TextBounds"):Connect(function()
-                label.Size = UDim2.new(label.Size.X, UDim.new(0, label.TextBounds.Y + 10))
-            end)
-
-            -- setup
-            label.Text = text
-            label.Parent = element_holder
-
-            -- label methods (functions)
-            local label_functions = {}
-
-            function label_functions.Set(text)
-                label.Text = text   
-            end
-
-            function label_functions.Destroy()
-                label:Destroy()
-            end
-
-            return label_functions
-        end
-
-        -- warning
-        function tab_functions.CreateWarning(text)
-            -- variables
-            local warning = assets.Elements.Warning:Clone()
-
-            -- scaling
-            warning:GetPropertyChangedSignal("TextBounds"):Connect(function()
-                warning.Size = UDim2.new(warning.Size.X, UDim.new(0, warning.TextBounds.Y + 10))
-            end)
-
-            -- setup
-            warning.Text = text
-            warning.Parent = element_holder
-
-            -- warning methods (functions)
-            local warning_functions = {}
-
-            function warning_functions.Set(text)
-                warning.Text = text
-            end
-
-            function warning_functions.Destroy()
-                warning:Destroy()
-            end
-
-            return warning_functions
-        end
-
-        -- button
-        --[[
-            Settings:
-
-            "Name" = <string>
-            "Callback" = <function>
-        ]]
-        function tab_functions.CreateButton(settings)
-
-            -- variables
-            local button = assets.Elements.Button:Clone()
-
-            -- logic
-            local Callbacks, AttemptCallback = InteractableElementConstructor(button, Tweens.Element)
-
-            -- connections
-            Callbacks.InteractEnded = function(debounce)
-                if debounce then
-                    AttemptCallback(settings.Callback)
+        tab_name_label.Text = name
+        return {
+            Label = function (content)
+                local label = label_template:Clone()
+                label.Text = content
+                label.Parent = element_holder
+            end, Button = function(name, callback)
+                local button = button_template:Clone()
+                button.Label.Text = name
+                button.MouseButton1Click:Connect(function()
+                    attempt_callback(callback)
+                end)
+                button.Parent = element_holder
+            end, Slider = function(name, start_value, min_value, max_value, increment, suffix, callback)
+                local slider = slider_template:Clone(); wait()
+                local box = slider.Box
+                local fill = box.Fill
+                local value_label = box.Value
+                slider.Label.Text = name
+                local range = max_value - min_value
+                local function vlofdkdf()
+                    fill.Size = UDim2.fromScale(start_value / range, 1)
+                    value_label.Text = start_value .. suffix
                 end
-            end
-
-            -- visualisation
-            button.Name = settings.Name
-            button.Text = settings.Name
-            button.Parent = element_holder
-
-            -- functions
-
-            local button_functions = {}
-
-            function button_functions.Click()
-                if debounce then
-                    AttemptCallback(settings.Callback)
-                end
-            end
-
-            function button_functions.Destroy()
-                button:Destroy()
-            end
-
-            return button_functions
-        end
-
-        -- toggle
-
-        --[[
-            Settings:
-
-            "Name" = <string>
-            "Callback" = <function>
-            "StartValue" = <boolean>
-        ]]
-
-        function tab_functions.CreateToggle(settings)
-
-            -- variables
-            local toggle = assets.Elements.Toggle:Clone(); task.wait()
-            local checkbox = toggle.CheckBox
-
-            -- core
-
-            local hovering, mouse_down, switch, debounce = false, false, settings.StartValue, true
-
-            -- tween and coloring stuff
-
-            local tweens = {
-                default = tweenservice:Create(toggle, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.default_color}),
-                hover = tweenservice:Create(toggle, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.hover_color}),
-                interact = tweenservice:Create(toggle, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.interact_color}),
-                error = tweenservice:Create(toggle, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = Theme.Element.error_color}),
-                checkbox = {
-                    [true] = tweenservice:Create(checkbox, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {ImageTransparency  = 0}),
-                    [false] = tweenservice:Create(checkbox, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.InOut), {ImageTransparency  = 1}),
-                },
-            }
-
-            local function set_switch(value)
-                switch = value
-                tweens.checkbox[switch]:Play()
-                return attempt_callback()
-            end
-
-            local function on_input_ended(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
-                    mouse_down = false
-                    if debounce then
-                        tweens.hover:Play()
-                        set_switch(not switch)
+                vlofdkdf()
+                local function kgjgfkjfdfdgbvcbvcnfghgf(kfghj)
+                    kfghj = math.clamp(kfghj, 0, 1)
+                    fill.Size = UDim2.fromScale(kfghj, 1)
+                    local ksdkak = kfghj * range
+                    local opso = min_value + math.floor(ksdkak / increment + .5) * increment
+                    if start_value ~= opso then
+                        start_value = opso
+                        value_label.Text = start_value .. suffix
+                        attempt_callback(callback, start_value)
                     end
                 end
-            end
-
-            -- visualisation
-            checkbox.ImageTransparency = switch and 0 or 1
-
-            toggle.Name = settings.Name
-            toggle.Text = settings.Name
-            toggle.Parent = element_holder
-
-            -- functions
-            local toggle_functions = {}
-
-            function toggle_functions.Set(value)
-                if debounce then
-                    task.spawn(set_switch, value)
-                end
-            end
-
-            function toggle_functions.Destroy()
-                toggle:Destroy()
-            end
-
-            return toggle_functions
-        end
-
-        -- slider
-
-        --[[
-            Settings:
-
-            "Name" = <string>
-            "StartValue" = <number>
-            "Range" = <array>, {min, max}
-            "Suffix" = <string>
-            "Callback" = <function>
-            "Increment" = <number>
-        ]]
-
-        function tab_functions.CreateSlider(settings)
-
-            -- setup
-
-            local slider = assets.Elements.Slider:Clone()
-            
-            task.wait()
-
-            local main = slider.Main
-
-            local bar = main.Bar
-            local progress_label = main.Progress
-
-            slider.Text = settings.Name
-            slider.Parent = element_holder
-
-            -- core
-
-            local hovering, sliding, progress, range, min_value, max_value, debounce = false, false, math.round(settings.StartValue / settings.Increment) * settings.Increment, math.abs(settings.Range[1] - settings.Range[2]), math.min(unpack(settings.Range)), math.max(unpack(settings.Range)), true
-
-            -- quick seup too
-
-            progress_label.Text = tostring(progress) .. " " .. settings.Suffix or ""
-
-            -- tween and coloring stuff
-
-            local tweens = {
-                default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.Element.default_color}),
-                error = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.Element.error_color}),
-                slider = {
-                    default = tweenservice:Create(main, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.SubElement.default_color}),
-                    hover = tweenservice:Create(main, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.SubElement.hover_color}),
-                },
-            }
-            
-            -- callback stufff
-
-            local function attempt_callback()
-                local success, message = pcall(settings.Callback, progress)
-                if not success then
-                    debounce = false
-                    if sliding then
-                        sliding = false
+                local con
+                box.MouseButton1Down:Connect(function()
+                    if con == nil then
+                        con = runservice.RenderStepped:Connect(function()
+                            local m_x = uis:GetMouseLocation().X
+                            local d_x = m_x - fill.AbsolutePosition.X
+                            kgjgfkjfdfdgbvcbvcnfghgf(d_x / box.AbsoluteSize.X)
+                        end)
                     end
-                    button.Text = "Callback Error"
-                    warn("plue-lib Callback Error:", message)
-                    tweens.error:Play()
-                    task.wait(2)
-                    button.Text = settings.Name
-                    tweens.default:Play()
-                    debounce = true
-                end
-                return success
-            end
-
-            local function update_progress(value)
-                if value ~= progress then
-                    progress = value
-                    progress_label.Text = tostring(progress) .. " " .. settings.Suffix or ""
-                    return attempt_callback()
-                end
-            end
-
-            -- connection callbacks
-
-            local function on_mouse_enter()
-                hovering = true
-                if debounce then
-                    tweens.slider.hover:Play()
-                end
-            end
-
-            local function on_mouse_leave()
-                hovering = false
-                if debounce then
-                    tweens.slider.default:Play()
-                end
-            end
-
-            local function on_input_began(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and debounce then
-                    sliding = true
-
-                    -- bla bla stuff right now bro?
-
-                    local last_mouse_x = userinputservice:GetMouseLocation().X
-
-                    do
-                        local x_progress = math.clamp(last_mouse_x - bar.AbsolutePosition.X, 0, main.AbsoluteSize.X)
-                        tweenservice:Create(bar, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
-    
-                        local new_progress = math.clamp(math.round(((x_progress / main.AbsoluteSize.X) * range + .5) / settings.Increment) * settings.Increment, min_value, max_value)
-                        update_progress(new_progress)
+                end)
+                box.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 and con then
+                        con:Disconnect()
+                        con = nil
                     end
-
-                    local connection; connection = runservice.RenderStepped:Connect(function()
-                        if sliding then
-                            local current_mouse_x = userinputservice:GetMouseLocation().X
-                            local mouse_x_delta = (current_mouse_x - last_mouse_x)
-                            if mouse_x_delta ~= 0 then
-                                last_mouse_x = current_mouse_x
-
-                                local x_progress = math.clamp(current_mouse_x - bar.AbsolutePosition.X, 0, main.AbsoluteSize.X)
-                                tweenservice:Create(bar, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
-
-                                local new_progress = math.clamp(math.round(((x_progress / main.AbsoluteSize.X) * range +.5) / settings.Increment) * settings.Increment, min_value, max_value)
-                                update_progress(new_progress)
-                            end
-                        else
-                            connection:Disconnect()
-                        end
-                    end)
-                end
-            end
-
-            local function on_input_ended(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and sliding then
-                    sliding = false
-                end
-            end
-
-            -- connections
-
-            main.MouseEnter:Connect(on_mouse_enter)
-            main.MouseLeave:Connect(on_mouse_leave)
-            main.InputBegan:Connect(on_input_began)
-            main.InputEnded:Connect(on_input_ended)
-
-            -- functions
-
-            local slider_functions = {}
-
-            function slider_functions.Set(value)
-                value = math.clamp(value, min_value, max_value)
-                local x_progress = (value / range) * main.AbsoluteSize.X
-                tweenservice:Create(bar, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(0, x_progress, 1, 0)}):Play()
-                update_progress(value)
-            end
-
-            function slider_functions.Destroy()
-                if sliding then
-                    sliding = false
-                end
-                slider:Destroy()
-            end
-
-            return slider_functions
-        end
-
-        -- dropdown
-
-        --[[
-            Settings:
-
-            Name = <string>,
-            CurrentOption = <string>,
-            Options = <array : <string>>,
-            Callback = <function>
-        ]]
-
-        function tab_functions.CreateDropdown(settings)
-
-            -- setup
-
-            local dropdown = assets.Elements.Dropdown:Clone()
-
-            task.wait()
-
-            local hitbox = dropdown.Hitbox
-            local arrow = dropdown.Icon
-            local selected_label = dropdown.Selected
-            local list = dropdown.List.Holder
-            local list_layout = list.UIListLayout
-
-            selected_label.Text = settings.CurrentOption
-
-            dropdown.Text = settings.Name
-            dropdown.Parent = element_holder
-
-            -- scaling stuff over here
-
-            list_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                list.CanvasSize = UDim2.new(0, 0, 0, list_layout.AbsoluteContentSize.Y + 10)
-            end)
-
-            -- core
-
-            local hovering, mouse_down, current_option, current_option_button, open = false, false, settings.CurrentOption, nil, false
-
-            -- tween and coloring stuff
-
-            local tweens = {
-                default = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.Element.default_color}),
-                hover = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.Element.hover_color}),
-                interact = tweenservice:Create(dropdown, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.Element.interact_color}),
-                dropdown = {
-                    [true] = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(dropdown.Size.X, UDim.new(0, 270))}),
-                    [false] = tweenservice:Create(dropdown, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = dropdown.Size}),
-                },
-                arrow = {
-                    [true] = tweenservice:Create(arrow, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Rotation = 180}),
-                    [false] = tweenservice:Create(arrow, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Rotation = 0}),
-                },
-            }
-
-            local function reset_tween()
-                if mouse_down then
-                    tweens.interact:Play()
-                elseif hovering then
-                    tweens.hover:Play()
-                else
-                    tweens.default:Play()
-                end
-            end
-
-            -- callback
-
-            local function attempt_callback()
-                local success, message = pcall(settings.Callback, current_option)
-                return success, message
-            end
-
-            local function set_option(option, button)
-                local previous_button = current_option_button
-                current_option, current_option_button = option, button
-                if previous_button then
-                    previous_button.UIStroke.Color = theme.element.dropdown.option_corner.default
-                end
-                current_option_button.UIStroke.Color = theme.element.dropdown.option_corner.selected
-                selected_label.Text = current_option
-                return attempt_callback()
-            end
-
-            -- connection callbacks
-
-            local function on_mouse_enter()
-                hovering = true
-                tweens.hover:Play()
-            end
-
-            local function on_mouse_leave()
-                hovering = false
-                if mouse_down then
-                    mouse_down = false
-                end
-                tweens.default:Play()
-            end
-
-            local function on_input_began(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    mouse_down = true
-                    tweens.interact:Play()
-                end
-            end
-
-            local function on_input_ended(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
-                    mouse_down = false
-                    open = not open
-                    tweens.arrow[open]:Play()
-                    tweens.dropdown[open]:Play()
-                    tweens.hover:Play()
-                end
-            end
-
-            -- connections
-
-            hitbox.MouseEnter:Connect(on_mouse_enter)
-            hitbox.MouseLeave:Connect(on_mouse_leave)
-            hitbox.InputBegan:Connect(on_input_began)
-            hitbox.InputEnded:Connect(on_input_ended)
-
-            -- CREATING OPTIONS
-
-            local function create_option(option)
-                
-                local button = assets.Elements.DropdownOption:Clone()
-
-                button.Name = option
-                button.Text = option
-                button.Parent = list
-
-                -- normal button stuff.
-
-                local hovering, mouse_down, debounce = false, false, true
-
-                -- tween and coloring stuff
-    
-                local tweens = {
-                    default = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.default_color}),
-                    hover = tweenservice:Create(button, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.hover_color}),
-                    interact = tweenservice:Create(button, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.interact_color}),
-                    error = tweenservice:Create(button, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.error_color}),
+                end)
+                slider.Parent = element_holder
+                return {
+                    Set = function (value)
+                        start_value = value
+                        vlofdkdf()
+                    end, GetValue = function()
+                        return start_value
+                    end
                 }
-    
-                local function reset_tween()
-                    if mouse_down then
-                        tweens.interact:Play()
-                    elseif hovering then
-                        tweens.hover:Play()
+            end, Dropdown = function(name, start_options, options, callback, min_selected_option_count, max_selected_option_count)
+                local dropdown = dropdown_template:Clone(); wait()
+                local list = dropdown.List
+                local box = dropdown.Box
+                local arrow = box.Arrow
+                local value_label = box.Value
+                value_label.Text = table.concat(start_options, ", ")
+                dropdown.Label.Text = name
+                local option_buttons = {}
+                local y_size = 50
+                local open = false
+                local function update()
+                    value_label.Text = table.concat(start_options, ", ")
+                    y_size = list.AbsoluteSize.Y + 50
+                    if open then
+                        dropdown.Size = UDim2.new(dropdown.Size.X, UDim.new(0, y_size))
+                    end
+                    attempt_callback(callback, start_options)
+                end
+                box.MouseButton1Click:Connect(function()
+                    open = not open
+                    if open then
+                        dropdown.Size = UDim2.new(dropdown.Size.X, UDim.new(0, y_size))
+                        arrow.Rotation = 180
                     else
-                        tweens.default:Play()
+                        dropdown.Size = UDim2.new(dropdown.Size.X, UDim.new(0, 50))
+                        arrow.Rotation = 0
                     end
-                end
-    
-                -- callback stufff
-    
-                local function choose()
-                    local success, message = set_option(option, button)
-                    if not success then
-                        debounce = false
-                        button.Text = "Callback Error"
-                        warn("plue-lib Callback Error:", message)
-                        tweens.error:Play()
-                        task.wait(2)
-                        button.Text = option
-                        reset_tween()
-                        debounce = true
-                    end
-                    return success
-                end
-    
-                -- connection callbacks
-    
-                local function on_mouse_enter()
-                    hovering = true
-                    if debounce then
-                        tweens.hover:Play()
-                    end
-                end
-    
-                local function on_mouse_leave()
-                    hovering = false
-                    if debounce then
-                        tweens.default:Play()
-                    end
-                    if mouse_down then
-                        mouse_down = false
-                    end
-                end
-    
-                local function on_input_began(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        mouse_down = true
-                        if debounce then
-                            tweens.interact:Play()
-                        end
-                    end
-                end
-    
-                local function on_input_ended(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
-                        mouse_down = false
-                        if debounce then
-                            tweens.hover:Play()
-                            if current_option ~= option then
-                                choose()
-                            end
-                        end
-                    end
-                end
-    
-                -- connections
-    
-                button.MouseEnter:Connect(on_mouse_enter)
-                button.MouseLeave:Connect(on_mouse_leave)
-                button.InputBegan:Connect(on_input_began)
-                button.InputEnded:Connect(on_input_ended)
-            end
-
-            -- setting base options
-            
-            for _, option in ipairs(settings.Options) do
-                create_option(option)
-            end
-
-            -- some other stuff of course
-
-            do
-                local current_button = list:FindFirstChild(current_option)
-                if current_button then
-                    current_option_button = current_button
-                    current_option_button.UIStroke.Color = theme.element.dropdown.option_corner.selected
-                end
-            end
-
-            -- functions
-
-            local dropdown_functions = {}
-
-            dropdown_functions.Add = create_option
-
-            dropdown_functions.Remove = function(option)
-                local button = list:FindFirstChild(option)
-                if button then
-                    button:Destroy()
-                    if current_option == option and current_option_button == button then
-                        current_option, current_option_button, selected_label.Text = nil, nil, ""
-                    end
-                end
-            end
-
-            function dropdown_functions.Set(option)
-                if current_option ~= option then
-                    local button = list:FindFirstChild(option)
-                    if button then
-                        task.spawn(set_option, option, button)
-                    end
-                end
-            end
-
-            function dropdown_functions.Destroy()
-                dropdown:Destroy()
-            end
-
-            return dropdown_functions
-        end
-
-        -- input
-
-        -- keybind
-
-        --[[
-            Settings:
-
-            Name = <string>,
-            Callback = <function>,
-            CurrentBind = <KeyCode?>
-        ]]
-
-        function tab_functions.CreateKeybind(settings)
-            
-            -- setup
-
-            local keybind = assets.Elements.Keybind:Clone()
-
-            task.wait()
-
-            local holder = keybind.Holder
-
-            do
-                if settings.CurrentBind then
-                    local bind_string = userinputservice:GetStringForKeyCode(settings.CurrentBind)
-                    if bind_string then
-                        holder.Text = bind_string
-                    else
-                        holder.Text = settings.CurrentBind.Name
-                    end
-                end
-            end
-
-            keybind.Text = settings.Name
-            keybind.Parent = element_holder
-
-            -- scaling stuff
-
-            holder:GetPropertyChangedSignal("TextBounds"):Connect(function()
-                holder.Size = UDim2.fromOffset(holder.TextBounds.X + 20, holder.Size.Y.Offset)
-            end)
-
-            -- core
-
-            local hovering, mouse_down, bind, binding, debounce = false, false, settings.CurrentBind, false, true
-
-            -- tween and coloring stuff
-
-            local tweens = {
-                default = tweenservice:Create(keybind, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
-                hover = tweenservice:Create(keybind, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}),
-                interact = tweenservice:Create(keybind, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
-                error = tweenservice:Create(keybind, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
-            }
-
-            local function reset_tween()
-                if mouse_down then
-                    tweens.interact:Play()
-                elseif hovering then
-                    tweens.hover:Play()
-                else
-                    tweens.default:Play()
-                end
-            end
-
-            -- callback stufff
-
-            local function attempt_callback()
-                local success, message = pcall(settings.Callback)
-                if not success then
-                    debounce = false
-                    button.Text = "Callback Error"
-                    warn("plue-lib Callback Error:", message)
-                    tweens.error:Play()
-                    task.wait(2)
-                    button.Text = settings.Name
-                    reset_tween()
-                    debounce = true
-                end
-                return success
-            end
-
-            -- binding stuff
-
-            local function uis_input_began(input, gameProcessedEvent)
-                if not gameProcessedEvent then
-                    if binding then
-                        if input.UserInputType == Enum.UserInputType.Keyboard then
-                            binding = false
-                            bind = input.KeyCode
-                            local bind_string = userinputservice:GetStringForKeyCode(bind)
-                            if bind_string ~= "" and bind_string:gsub("%s+", ""):len() ~= 0 then
-                                holder.Text = bind_string
-                            else
-                                holder.Text = bind.Name
-                            end
-                        end
-                    elseif input.KeyCode == bind then
-                        attempt_callback()
-                    end
-                end
-            end
-
-            -- connection callbacks
-
-            local function on_mouse_enter()
-                hovering = true
-                tweens.hover:Play()
-            end
-
-            local function on_mouse_leave()
-                hovering = false
-                tweens.default:Play()
-                if mouse_down then
-                    mouse_down = false
-                end
-                if binding then
-                    binding = false
-                    holder.Text = ""
-                end
-            end
-
-            local function on_input_began(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    mouse_down = true
-                    tweens.interact:Play()
-                end
-            end
-
-            local function on_input_ended(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
-                    mouse_down = false
-                    tweens.hover:Play()
-
-                    binding = true
-                    bind = nil
-                    holder.Text = "..."
-                end
-            end
-
-            -- connections
-
-            keybind.MouseEnter:Connect(on_mouse_enter)
-            keybind.MouseLeave:Connect(on_mouse_leave)
-            keybind.InputBegan:Connect(on_input_began)
-            keybind.InputEnded:Connect(on_input_ended)
-
-            local uis_connection = userinputservice.InputBegan:Connect(uis_input_began)
-
-            keybind.Destroying:Connect(function()
-                uis_connection:Disconnect()
-            end)
-
-            -- functions
-
-            local keybind_functions = {}
-
-            function keybind_functions.Set(value)
-                bind = value
-            end
-
-            function keybind_functions.GetCurrentKeybind()
-                return bind
-            end
-
-            function keybind_functions.Destroy()
-                keybind:Destroy()
-            end
-
-            return keybind_functions
-        end
-
-        -- input
-
-        --[[
-            Settings:
-
-            Name = <string>,
-            CurrentInput = <string>,
-            Callback = <function>
-        ]]
-
-        function tab_functions.CreateInput(settings)
-            
-            -- setup
-
-            local input = assets.Elements.Input:Clone()
-
-            task.wait()
-
-            local holder = input.Holder
-            local textbox : TextBox = input.TextBox
-
-            input.Text = settings.Name
-            input.Parent = element_holder
-
-            -- scaling stuff
-            
-            textbox:GetPropertyChangedSignal("Text"):Connect(function()
-                if textbox:IsFocused() then
-                    input.Size = UDim2.new(input.Size.X, UDim.new(0, math.clamp(textbox.TextBounds.Y + 40, 60, math.huge)))
-                end
-            end)
-
-            if settings.CurrentInput:len() > 24 then
-                holder.Text = settings.CurrentInput:sub(1, 24) .. "..."
-            else
-                holder.Text = settings.CurrentInput
-            end
-
-            holder.Size = UDim2.fromOffset(holder.TextBounds.X + 30, holder.Size.Y.Offset)
-
-            --dang
-
-            textbox.Text = settings.CurrentInput
-
-            -- bruh
-
-            local hovering, mouse_down, inputting, current_input, debounce = false, false, false, settings.CurrentInput, true
-
-            -- tweening etc
-
-            local tweens = {
-                default = tweenservice:Create(input, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}),
-                hover = tweenservice:Create(input, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}),
-                interact = tweenservice:Create(input, TweenInfo.new(.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}),
-                error = tweenservice:Create(input, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}),
-            }
-
-            -- callback stuff
-
-            local function reset_tween()
-                if mouse_down then
-                    tweens.interact:Play()
-                elseif hovering then
-                    tweens.hover:Play()
-                else
-                    tweens.default:Play()
-                end
-            end
-
-            local function attempt_callback()
-                local success, message = pcall(settings.Callback, current_input)
-                if not success then
-                    debounce = false
-                    input.Text = "Callback Error"
-                    warn("plue-lib Callback Error:", message)
-                    tweens.error:Play()
-                    task.wait(2)
-                    input.Text = settings.Name
-                    reset_tween()
-                    debounce = true
-                end
-                return success
-            end
-            
-            local function set_input(input)
-                if input ~= current_input then
-                    current_input = input
-                    if string.len(input) > 24 then
-                        holder.Text = string.sub(input, 1, 24) .. "..."
-                    else
-                        holder.Text = input
-                    end
-                    holder.Size = UDim2.fromOffset(holder.TextBounds.X + 30, holder.Size.Y.Offset)
-                    attempt_callback()
-                end
-            end
-
-            -- connections
-
-            -- inpıttin
-
-            textbox.Focused:Connect(function()
-                task.wait()
-                input.Size = UDim2.new(input.Size.X, UDim.new(0, math.clamp(textbox.TextBounds.Y + 40, 60, math.huge)))
-            end)
-
-            textbox.FocusLost:Connect(function(enterPressed)
-                if enterPressed then
-                    set_input(textbox.Text)
-                end
-                input.Size = UDim2.new(input.Size.X, UDim.new(0, 60))
-                textbox.Visible = false
-            end)
-
-            -- general stuff
-
-            input.MouseEnter:Connect(function()
-                hovering = true
-                if debounce then
-                    tweens.hover:Play()
-                end
-            end)
-
-            input.MouseLeave:Connect(function()
-                hovering = false
-                if debounce then
-                    tweens.default:Play()
-                end
-                if mouse_down then
-                    mouse_down = false
-                end
-                if textbox:IsFocused() then
-                    textbox:ReleaseFocus(false)
-                    textbox.Text = current_input
-                end
-            end)
-
-            input.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    mouse_down = true
-                    if debounce then
-                        tweens.interact:Play()
-                    end
-                end
-            end)
-
-            input.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and mouse_down then
-                    mouse_down = false
-                    
-                    if debounce then
-                        tweens.hover:Play()
-
-                        textbox.Visible = true
-                        textbox:CaptureFocus()
-                    end
-                end
-            end)
-
-            local input_functions = {}
-
-            function input_functions.Set(text)
-                textbox.Text = text
-                task.spawn(set_input, text)
-            end
-
-            function input_functions.GetCurrentInput()
-                return current_input
-            end
-
-            function input_functions.Destroy()
-                input:Destroy()
-            end
-
-            return input_functions
-
-        end
-
-        -- color picker
-
-        --[[
-            Settings:
-
-            CurrentColor = <Color3>,
-            Name = <string>,
-            Callback = <function>
-        ]]
-
-        function tab_functions.CreateColorPicker(settings)
-
-            -- variables
-
-            local color_picker = assets.Elements.ColorPicker:Clone()
-
-            task.wait()
-
-            local hitbox = color_picker.Hitbox
-            local color_circle_icon = color_picker.Color
-            local holder = color_picker.Holder
-
-            local hue_saturation_slider = holder.HueSaturationSlider
-            local value_slider = holder.BrightnessSlider
-
-            local hex_textbox = holder.Hex.Value
-            local rgb_frame = holder.RGB.Values
-
-            local value_slider_circle = value_slider.Button
-            local hue_saturation_slider_circle = hue_saturation_slider.Button
-
-            -- setup   
-
-            local color = settings.CurrentColor
-            local hue, saturation, value = color:ToHSV()
-            local r, g, b = color.R * 255, color.G * 255, color.B * 255
-            local hex = color:ToHex()
-
-            -- hue / saturation updates
-
-            local function update_hue_slider()
-                hue_saturation_slider_circle.Position = UDim2.fromScale(hue, hue_saturation_slider_circle.Position.Y.Scale)
-                hue_saturation_slider_circle.BackgroundColor3 = Color3.fromHSV(hue, saturation, 1)
-            end
-
-            local function update_saturation_slider()
-                hue_saturation_slider_circle.Position = UDim2.fromScale(hue_saturation_slider_circle.Position.X.Scale, 1 - saturation)
-                hue_saturation_slider_circle.BackgroundColor3 = Color3.fromHSV(hue, saturation, 1)
-            end
-
-            -- value updates
-
-            local function update_value_slider()
-                value_slider_circle.Position = UDim2.fromScale(value, 0)
-            end
-
-            -- all slider updates
-
-            local function update_sliders()
-                update_hue_slider(); update_saturation_slider(); update_value_slider()
-            end
-
-            -- rgb updates
-
-            local function update_rgb()
-                rgb_frame.R.Text, rgb_frame.G.Text, rgb_frame.B.Text = math.round(r), math.round(g), math.round(b)
-            end
-
-            -- hex updates
-
-            local function update_hex()
-                hex_textbox.Text = "#" .. tostring(hex)
-            end
-
-            -- callback, color
-
-            local attempt_callback
-
-            local function update_color(from : string?)
-                if from == "HSV" then
-                    color = Color3.fromHSV(hue, saturation, value)
-                    hex, r, g, b = color:ToHex(), color.R * 255, color.G * 255, color.B * 255
-                    update_hex()
-                    update_rgb()
-                elseif from == "Hex" then
-                    color = Color3.fromHex(hex)
-                    r, g, b, hue, saturation, value = color.R * 255, color.G * 255, color.B * 255, color:ToHSV()
-                    update_rgb()
-                    update_sliders()
-                elseif from == "RGB" then
-                    color = Color3.fromRGB(r, g, b)
-                    hex, hue, saturation, value = color:ToHex(), color:ToHSV()
-                    update_hex()
-                    update_sliders()
-                end
-
-                value_slider_circle.BackgroundColor3 = color
-                value_slider.BackgroundColor3 = Color3.fromHSV(hue, saturation, 1)
-
-                color_circle_icon.BackgroundColor3 = color
-
-                attempt_callback()
-            end
-
-            -- hue / saturation slider.
-
-            do
-                local connection
-
-                local function start_dragging()
-                    if not connection then
-                        userinputservice.MouseIconEnabled = false
-                        connection = runservice.RenderStepped:Connect(function()
-                            local current = userinputservice:GetMouseLocation()
-                            local change_made = false
-
-                            local new_hue = math.clamp((current.X - hue_saturation_slider.AbsolutePosition.X) / hue_saturation_slider.AbsoluteSize.X, 0, 1)
-
-                            if new_hue ~= hue then
-                                hue = new_hue
-                                update_hue_slider()
-                                change_made = true
-                            end
-
-                            local new_saturation = math.clamp((hue_saturation_slider.AbsolutePosition.Y + hue_saturation_slider.AbsoluteSize.Y - current.Y + 36) / hue_saturation_slider.AbsoluteSize.Y, 0, 1)
-                            
-                            if new_saturation ~= saturation then
-                                saturation = new_saturation
-                                update_saturation_slider()
-                                change_made = true
-                            end
-
-                            if change_made then
-                                update_color("HSV")
-                            end
-
-                        end)
-                    end
-                end
-
-                local function stop_dragging()
-                    if connection then
-                        connection:Disconnect()
-                        connection = nil
-                        userinputservice.MouseIconEnabled = true
-                    end
-                end
-
-                local function input_began(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        start_dragging()
-                    end
-                end
-
-                local function input_ended(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        stop_dragging()
-                    end
-                end
-
-                hue_saturation_slider_circle.InputBegan:Connect(input_began)
-                hue_saturation_slider.InputBegan:Connect(input_began)
-
-                hue_saturation_slider_circle.InputEnded:Connect(input_ended)
-                hue_saturation_slider.InputEnded:Connect(input_ended)
-            end
-
-            -- value slider.
-
-            do
-                local connection
-
-                local function start_dragging()
-                    if not connection then
-                        userinputservice.MouseIconEnabled = false
-                        connection = runservice.RenderStepped:Connect(function()
-                            local current = userinputservice:GetMouseLocation().X
-                            local new_value = math.clamp((current - value_slider.AbsolutePosition.X) / value_slider.AbsoluteSize.X, 0, 1)
-                            if new_value ~= value then
-                                value = new_value
-                                update_value_slider()
-                                update_color("HSV")
-                            end
-                        end)
-                    end
-                end
-
-                local function stop_dragging()
-                    if connection then
-                        connection:Disconnect()
-                        connection = nil
-                        userinputservice.MouseIconEnabled = true
-                    end
-                end
-
-                local function input_began(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        start_dragging()
-                    end
-                end
-
-                local function input_ended(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        stop_dragging()
-                    end
-                end
-
-                value_slider_circle.InputBegan:Connect(input_began)
-                value_slider.InputBegan:Connect(input_began)
-
-                value_slider_circle.InputEnded:Connect(input_ended)
-                value_slider.InputEnded:Connect(input_ended)
-            end
-
-            -- rgb, hex input
-
-            -- scaling, effects
-
-            for _, v in ipairs({rgb_frame["R"], rgb_frame["G"], rgb_frame["B"], hex_textbox}) do
-
-                -- scaling
-
-                v:GetPropertyChangedSignal("Text"):Connect(function()
-                    v.Size = UDim2.fromOffset(v.TextBounds.X + 20, v.Size.Y.Offset)
+                    list.Visible = open
                 end)
-
-                -- tweening, effects.
-
-                v.MouseEnter:Connect(function()
-                    tweenservice:Create(v, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.hover_color}):Play()
-                end)
-
-                v.MouseLeave:Connect(function()
-                    tweenservice:Create(v, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.sub_element.default_color}):Play()
-                end)
-
-            end
-
-            -- rgb input
-
-            rgb_frame["R"].FocusLost:Connect(function()
-                local input = tonumber(rgb_frame.R.Text)
-                if input then
-                    local new_r = math.clamp(input, 0, 255)
-                    if new_r ~= r then
-                        r = new_r
-                        update_color("RGB")
-                    end
-                end
-                rgb_frame.R.Text = math.round(r)
-            end)
-
-            rgb_frame["G"].FocusLost:Connect(function()
-                local input = tonumber(rgb_frame.G.Text)
-                if input then
-                    local new_g = math.clamp(input, 0, 255)
-                    if new_g ~= g then
-                        g = new_g
-                        update_color("RGB")
-                    end
-                end
-                rgb_frame.G.Text = math.round(g)
-            end)
-
-            rgb_frame["B"].FocusLost:Connect(function()
-                local input = tonumber(rgb_frame.B.Text)
-                if input then
-                    local new_b = math.clamp(input, 0, 255)
-                    if new_b ~= b then
-                        b = new_b
-                        update_color("RGB")
-                    end
-                end
-                rgb_frame.B.Text = math.round(b)
-            end)
-
-            -- hex input
-
-            hex_textbox.FocusLost:Connect(function()
-                local new_hex = hex_textbox.Text
-                if new_hex ~= hex then
-                    hex = new_hex
-                    update_color("Hex")
-                end
-                hex_textbox.Text = hex
-            end)
-
-            -- startup updates
-
-            update_sliders(); update_hex(); update_rgb()
-
-            -- button
-
-            do
-                local hovering, mouse_down, open, debounce = false, false, false, true
-
-                hitbox.MouseEnter:Connect(function()
-                    hovering = true
-                    if debounce then
-                        tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}):Play()
-                    end
-                end)
-
-                hitbox.MouseLeave:Connect(function()
-                    hovering = false
-                    if mouse_down then
-                        mouse_down = false
-                    end
-                    if debounce then
-                        tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}):Play()
-                    end
-                end)
-
-                hitbox.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        mouse_down = true
-                        if debounce then
-                            tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}):Play()
-                        end
-                    end
-                end)
-
-                -- tweening
-
-                do
-
-                    local size_tweens = {
-                        [true] = tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = UDim2.new(color_picker.Size.X,UDim.new(0, 350))}),
-                        [false] = tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {Size = color_picker.Size})
-                    }
-                    
-                    hitbox.InputEnded:Connect(function(input)
-                        if input.UserInputType == Enum.UserInputType.MouseButton1 and hovering then
-                            mouse_down = false
-                            if debounce then
-                                tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}):Play()
-                            end
-                            open = not open
-                            size_tweens[open]:Play()
+                local function add_option(option)
+                    if option_buttons[option] then return end
+                    local button = dropdown_button_template:Clone(); wait()
+                    option_buttons[option] = button
+                    button.Value.Text = option
+                    button.MouseButton1Click:Connect(function()
+                        local i = table.find(start_options, option)
+                        if i then
+                            if #start_options <= min_selected_option_count then return end
+                            table.remove(start_options, i)
+                            update()
+                        else
+                            if #start_options >= max_selected_option_count then return end
+                            table.insert(start_options, option)
+                            update()
                         end
                     end)
                 end
-
-                local function reset_tween()
-                    if mouse_down then
-                        tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.interact_color}):Play()
-                    elseif hovering then
-                        tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.hover_color}):Play()
-                    else
-                        tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.default_color}):Play()
+                local function remove_option(option)
+                    local button = option_buttons[option]
+                    if button then
+                        button:Destroy()
+                        option_buttons[option] = nil
+                    end
+                    local i = table.find(start_options, option)
+                    if i then
+                        table.remove(start_options, i)
+                        update()
                     end
                 end
-
-                attempt_callback = function()
-                    local success, message = pcall(settings.Callback, color)
-                    if not success then
-                        debounce = false
-                        color_picker.Text = "Callback Error"
-                        warn("plue-lib Callback Error:", message)
-                        tweenservice:Create(color_picker, TweenInfo.new(.3, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out), {BackgroundColor3 = theme.element.error_color}):Play()
-                        task.wait(2)
-                        input.Text = settings.Name
-                        reset_tween()
-                        debounce = true
+                for _, option in ipairs(options) do
+                    add_option(option)
+                end
+                for _, selected_option in ipairs(start_options) do
+                    local button = option_buttons[selected_option]
+                    if button then
+                        
                     end
-                    return success
                 end
-            end
-
-            color_picker.Text = settings.Name
-            color_picker.Parent = element_holder
-
-            color_circle_icon.BackgroundColor3 = color
-
-            -- functions
-
-            local color_picker_functions = {}
-
-            function color_picker_functions.GetCurrentColor()
-                return color
-            end
-
-            function color_picker_functions.Set(new_color)
-                if new_color ~= color then
-                    color = new_color
-                    update_sliders(); update_hex(); update_rgb()
-                    update_color()
+                update()
+                return {
+                AddOption = add_option, RemoveOption = remove_option, 
+                Refresh = function(options, selected_options)
+                        for _, button in pairs(option_buttons) do
+                            button:Destroy()
+                        end
+                        table.clear(option_buttons)
+                        start_options = selected_options
+                        for _, option in ipairs(options) do
+                            add_option(option)
+                        end
+                        update()
+                    end, GetSelected = function()
+                        return start_options
+                    end
+                }
+            end,
+            MultiElement = function()
+                local multi_element = multi_element_frame_template:Clone()
+                multi_element.Parent = element_holder
+                return {Label = function (content) -- multi element label
+                    local label = label_multi_element_version_template:Clone()
+                    label.Text = content
+                    label.Parent = multi_element
+                end, Toggle = function (start_value, callback) -- toggle
+                    local toggle = toggle_box_template:Clone(); wait()
+                    local fill = toggle.Fill
+                    fill.Visible = start_value
+                    local function switch(v)
+                        start_value = v
+                        fill.Visible = start_value
+                        attempt_callback(callback, start_value)
+                    end
+                    toggle.MouseButton1Click:Connect(function()
+                        switch(not start_value)
+                    end)
+                    toggle.Parent = multi_element
+                    return {
+                        Set = switch, GetValue = function()
+                            return start_value
+                        end
+                    }
+                end, Keybind = function(start_bind, callback, keybind_changed_callback) -- keybind
+                    local keybind = keybind_box_template:Clone(); wait()
+                    local label = keybind.Label
+                    label.Text = better_get_string_for_keycode(start_bind)
+                    local binding, hovering, cache = false, false, ""
+                    local function bind(keycode)
+                        if keycode ~= start_bind then
+                            start_bind = keycode
+                            cache = better_get_string_for_keycode(start_bind)
+                            label.Text = cache
+                            if keybind_changed_callback then
+                                attempt_callback(keybind_changed_callback, start_bind)
+                            end
+                        end
+                    end
+                    keybind.HoverBegan:Connect(function()
+                        hovering = true
+                    end)
+                    keybind.MouseButton1Click:Connect(function()
+                        if hovering then
+                            binding = true
+                            label.Text = "..."
+                        end
+                    end)
+                    keybind.HoverEnded:Connect(function()
+                        hovering = false
+                        if binding then
+                            binding = false
+                            label.Text = cache
+                        end
+                    end)
+                    uis.InputBegan:Connect(function(input)
+                        if binding then
+                            binding = false
+                            bind(input.KeyCode)
+                        elseif input.KeyCode == start_bind then
+                            attempt_callback(callback)
+                        end
+                    end)
+                    keybind.Parent = multi_element
+                    return {
+                        Set = bind, GetKeybind = function()
+                            return start_bind
+                        end
+                    }
+                end, Input = function (start_input, callback)
+                    local input = input_box_template:Clone(); wait()
+                    local textbox = input.TextBox
+                    local function u(t)
+                        if start_input ~= t then
+                            start_input = t
+                            attempt_callback(callback, start_input)
+                        end
+                    end
+                    textbox.FocusLost:Connect(function()
+                        local text = textbox.Text
+                        if text:len() > 24 then
+                            textbox.Text = text:sub(1, 24) .. "..."
+                        end
+                        u(text)
+                    end)
+                    textbox.Focused:Connect(function()
+                        textbox.Text = start_input
+                    end)
+                    local function v(t)
+                        return #t > 24 and t:sub(1, 24) .. "..." or t
+                    end
+                    textbox.Text = v(start_input)
+                    input.Parent = multi_element
+                    return {
+                        Set = function (t)
+                            textbox.Text = v(t)
+                            u(t)
+                        end, GetInput = function()
+                            return start_input
+                        end
+                    }
+                end, ColorPicker = function (start_color, callback)
+                    local color_picker = color_picker_box_template:Clone() ; local panel = color_picker_panel:Clone() ; wait()
+                    local rgb_hex_frame = panel.RGBHEX
+                    local rgb_textboxex = rgb_hex_frame.RGB
+                    local r_textbox = rgb_textboxex.R
+                    local g_textbox = rgb_textboxex.G
+                    local b_textbox = rgb_textboxex.B
+                    local hex_textbox = rgb_hex_frame.Hex
+                    local hue_slider = panel.H
+                    local saturation_value_slider = panel.SV
+                    local s_v_slider_circle = saturation_value_slider.Circle
+                    local h_slider_pointer = hue_slider.Arrow
+                    local h, s, v = start_color:ToHSV()
+                    local r, g, b = math.floor(start_color.R * 255), math.floor(start_color.G * 255), math.floor(start_color.B * 255)
+                    local hex = start_color:ToHex()
+                    local function hex_set()
+                        hex = start_color:ToHex()
+                        hex_textbox.Text = hex
+                    end
+                    local function rgb_set()
+                        r, g, b = math.floor(start_color.R * 255), math.floor(start_color.G * 255), math.floor(start_color.B * 255)
+                        r_textbox.Text, g_textbox.Text, b_textbox.Text = r,g, b
+                    end
+                    local saturation_frame = saturation_value_slider.Saturation
+                    local function hs_color_set()
+                        saturation_frame.BackgroundColor3 = Color3.fromHSV(h, 0, 1)
+                    end
+                    local function hsv_set()
+                        local h, s, v = start_color:ToHSV()
+                        s_v_slider_circle.Position = UDim2.fromScale(s, v)
+                        h_slider_pointer.Position = UDim2.fromScale(0, 1 - h)
+                        hs_color_set()
+                    end
+                    local setter = {
+                        ["Hex"] = function()
+                            start_color = Color3.fromHex(hex)
+                            rgb_set()
+                            hsv_set()
+                            hs_color_set()
+                        end,
+                        ["RGB"] = function()
+                            start_color = Color3.fromRGB(r, g , b)
+                            hex_set()
+                            hsv_set()
+                        end,
+                        ["SV"] = function()
+                            start_color = Color3.fromHSV(h, s, v)
+                            rgb_set()
+                            hex_set()
+                        end,
+                        ["H"] = function()
+                            start_color = Color3.fromHSV(h, s, v)
+                            hs_color_set()
+                            hex_set()
+                            rgb_set()
+                        end,
+                        ["All"] = function()
+                            hsv_set()
+                            rgb_set()
+                            hex_set()
+                        end
+                    }
+                    local function set(x)
+                        setter[x]()
+                        color_picker.BackgroundColor3 = start_color
+                        attempt_callback(callback, start_color)
+                    end
+                    r_textbox.FocusLost:Connect(function()
+                        local input = tonumber(r_textbox.Text)
+                        if input then
+                            local new_value = math.clamp(math.floor(input), 0, 255)
+                            if new_value ~= r then
+                                r = new_value
+                                r_textbox.Text = r
+                                set("RGB")
+                                return
+                            end
+                        end
+                        r_textbox.Text = r
+                    end)
+                    g_textbox.FocusLost:Connect(function()
+                        local input = tonumber(g_textbox.Text)
+                        if input then
+                            local new_value = math.clamp(math.floor(input), 0, 255)
+                            if new_value ~= g then
+                                g = new_value
+                                g_textbox.Text = g
+                                set("RGB")
+                                return
+                            end
+                        end
+                        g_textbox.Text = g
+                    end)
+                    b_textbox.FocusLost:Connect(function()
+                        local input = tonumber(b_textbox.Text)
+                        if input then
+                            local new_value = math.clamp(math.floor(input), 0, 255)
+                            if new_value ~= b then
+                                b = new_value
+                                b_textbox.Text = b
+                                set("RGB")
+                                return
+                            end
+                        end
+                        b_textbox.Text = b
+                    end)
+                    hex_textbox.FocusLost:Connect(function()
+                        local input = hex_textbox.Text
+                        local len = input:len()
+                        if len == 7 and input:sub(1,1) == "#" then
+                            input = tonumber(input:sub(2, -1), 16)
+                        elseif len == 6 then    
+                            input = tonumber(input, 16)
+                        else
+                            input = nil
+                        end
+                        if input ~= nil then
+                            input = math.clamp(input, 0, 0xffffff)
+                            if input ~= hex then
+                                hex = input
+                                hex_textbox.Text = "#" .. string.format("%x", hex)
+                                set("Hex")  
+                                return
+                            end
+                        end
+                        hex_textbox.Text = "#" .. string.format("%x", hex)
+                    end)
+                    do
+                        local con
+                        local p = hue_slider.AbsoluteSize.Y
+                        hue_slider.MouseButton1Down:Connect(function()
+                            if con == nil then
+                                con = runservice.RenderStepped:Connect(function()
+                                    local c = math.clamp((uis:GetMouseLocation().Y - hue_slider.AbsolutePosition.Y) / p, 0, 1)
+                                    local sdf = 1 - c
+                                    if sdf ~= h then
+                                        h = sdf
+                                        h_slider_pointer.Position = UDim2.fromScale(0, c)
+                                        set("H")
+                                    end
+                                end)
+                            end
+                        end)
+                        hue_slider.InputEnded:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.MouseButton1 and con then
+                                con:Disconnect()
+                                con = nil
+                            end
+                        end)
+                    end
+                    do
+                        local con
+                        local s = saturation_value_slider.AbsoluteSize
+                        saturation_value_slider.MouseButton1Down:Connect(function()
+                            if con == nil then
+                                con = runservice.RenderStepped:Connect(function()
+                                    local m = uis:GetMouseLocation()
+                                    local objspac = m - saturation_value_slider.AbsolutePosition
+                                    local p_s, p_v = math.clamp(objspac.X / s.X, 0, 1), math.clamp(objspac.X / s.X, 0, 1)
+                                    local kys, now = 1 - p_s, 1 - p_v
+                                    local k = kys ~= s
+                                    local y = now ~= v
+                                    if k then
+                                        s = kys
+                                        s_v_slider_circle.Position = UDim2.fromScale(p_s, s_v_slider_circle.Position.Y.Scale)
+                                    end
+                                    if y then
+                                        v = now
+                                        s_v_slider_circle.Position = UDim2.fromScale(s_v_slider_circle.Position.X.Scale, p_v)
+                                    end
+                                    if k or y then
+                                        set("SV")
+                                    end
+                                end)
+                            end
+                        end)
+                        hue_slider.InputEnded:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.MouseButton1 and con then
+                                con:Disconnect()
+                                con = nil
+                            end
+                        end)
+                    end
+                    color_picker.MouseButton1Click:Connect(function()
+                        local x  = uis:GetMouseLocation()
+                        panel.Position = UDim2.fromOffset(x.X, x.Y + 36)
+                        panel.Visible = true
+                    end)
+                    panel.HoverEnded:Connect(function()
+                        panel.Visible = false
+                    end)
+                    setter["All"]()
+                    color_picker.Parent = multi_element
+                    panel.Parent = gui
+                    return {
+                        Set = function (color)
+                            if start_color ~= color then
+                                start_color = color
+                                set("All")
+                            end
+                        end, GetColor = function()
+                            return start_color
+                        end
+                    }
                 end
+            }
             end
-
-            function color_picker_functions.Destroy()
-                color_picker:Destroy()
-            end
-
-            return color_picker_functions
-        end
-
-        -- prompt
-
-        -- destroy
-
-        function tab_functions.Destroy()
-            button:Destroy()
-            tab:Destroy()
-            if current_tab == tab then
-                current_tab, current_tab_button = nil, nil
-            end
-        end
-
-        return tab_functions
+        }
     end
-
-    -- settings tab
-
-    local settings_tab = window_functions.CreateTab("window_settings")
-
-    settings_tab.CreateSection("Window Settings")
-    local close_keybind = settings_tab.CreateKeybind({
-        Name = "UI Keybind",
-        CurrentBind = close_keybind,
-        Callback = function()
-            window_functions.ToggleWindow(not core.Visible)
+    return {
+        Tab = create_tab, 
+        CreateUISettings = function()
+            local ui_settings_tab = create_tab("UI Settings", "7059346373")
+            local sadk = ui_settings_tab.MultiElement()
+            sadk.Label("UI Keybind"); sadk.Keybind(default_keybind, function()
+                gui.Enabled = not gui.Enabled
+            end, function(keybind)
+                gui_keybind_label.Text = better_get_string_for_keycode(keybind)
+            end)
         end
-    })
-
-    tablist["window_settings"]:Destroy()
-
-    settings_button.Activated:Connect(function()
-        if current_tab ~= settings_tab then
-            ChangeTab(settings_tab)
-        end
-    end)
-
-    -- buttons
-
-    -- nigga cum
-
-    function window_functions.ToggleWindow(toggle)
-        core.Visible = toggle
-    end
-
-    close_button.Activated:Connect(function()
-        window_functions.ToggleWindow(false)
-        local current_bind = close_keybind.GetCurrentKeybind()
-        if current_bind then
-            library.Notify({
-                Color = Color3.fromRGB(0, 110, 255),
-                Content = "Window [" .. name .. "] is closed. Press " .. current_bind.Name .. " to open it.",
-                Duration = 3
-            })
-        end
-    end)
-
-    -- final product
-
-    function window_functions.Destroy()
-        gui:Destroy()
-    end
-
-    return window_functions
+    }
 end
-
-----------------------------------------------------------------------------------------------------------------------------
-
--- test
-
-local window = library.CreateWindow("cum")
-local tab1, tab2, tab3 = window.CreateTab("gay porn"), window.CreateTab("movies"), window.CreateTab("nigger stuff")
-tab1.CreateSection("nigger point")
-tab1.CreateButton({
-    Name = "Cum Activator",
-    Callback = function()
-        print("You've been cummed!")
-    end
-}
-)
-tab1.CreateSection("cum point")
-tab1.CreateLabel("abone olun like atın teşekkür ederim ben kaynia emir kaya 10 izleniyorum")
-tab1.CreateSlider({
-    Name = "Noob Count",
-    Suffix = "Noobs",
-    Range = {1, 100},
-    StartValue = 50,
-    Increment = 1,
-    Callback = function(value)
-        warn("Congrats with your", value, "Noobs Retard")
-    end
-})
-
-tab2.CreateWarning("Allah bir varmış bir yokmuş, desem günah olurdu ama bu adam türk olsa severdiniz")
-tab2.CreateToggle({
-    Name = "Cum Mode",
-    StartValue = true,
-    Callback = function(v)
-        warn("Your cum mode is now:", v)
-    end
-})
-
-tab2.CreateDropdown({
-    Name = "En Ucube Olan",
-    Options = {
-        "Tarico",
-        "Efeerderdnesn",
-        "Alico",
-        "İzabel",
-        "plue"
-    },
-    CurrentOption = "plue",
-    Callback = function(option)
-        print("orospu cocugu", option)
-    end
-})
-
-tab2.CreateWarning("Tariconun allahı yok")
-
-tab2.CreateKeybind({
-    Name = "print cool",
-    CurrentBind = Enum.KeyCode.Q,
-    Callback = function()
-        print("you are sooooo fucking cool bro!!!!!")
-    end
-})
-
-tab3.CreateButton({
-    Name = "Notify Something Cool",
-    Callback = function()
-        library.Notify({
-            Content = "Very cool stuff right here ma boy!",
-            Duration = 5,
-            Color = Color3.fromRGB(255, 65, 65),
-            SoundId = "6026984224"
-        })
-    end
-})
-
-tab3.CreateInput({
-    Name = "Cum Color",
-    CurrentInput = "White Of Course nigger ass bitch!",
-    Callback = function(input)
-        print("Your cum is now:", input, "congrats!")
-    end
-})
-
-tab3.CreateColorPicker({
-    Name = "Cum Color Picker",
-    CurrentColor = Color3.new(1, 0, 0),
-    Callback = function(color)
-    end
-})
-
--- brav
-
-return library
