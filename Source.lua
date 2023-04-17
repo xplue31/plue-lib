@@ -36,21 +36,19 @@ local function attempt_callback(callback, ...)
     end
     return s
 end
-return function(name, default_keybind)
+function create_window(name, default_keybind)
     for _, v in ipairs(coregui:GetChildren()) do
         if v.Name == "iciciikmhkmjutygh" then
             v:Destroy()
         end
     end
     local gui = gui_template:Clone(); wait()
-    if syn and syn.protect_gui then
-        syn.protect_gui(gui)
-    end
     gui.NameLabel.Text = name
     gui.Name, gui.Parent = "iciciikmhkmjutygh", coregui
     local gui_keybind_label = gui.KeybindLabel
     local gui_keybind_template_text = "press %s to toggle gui"
     gui_keybind_label.Text = gui_keybind_template_text:format(better_get_string_for_keycode(default_keybind))
+    local main = gui.Main
     local function create_tab(name, image_id)
         local tab = tab_template:Clone(); wait()
         local bar = tab.Bar
@@ -61,35 +59,54 @@ return function(name, default_keybind)
         if image_id then
             icon.Image = "rbxassetid://" .. image_id
         else
-            icon.Image = nil
-        end
-        do
-            local function kbbkgbjgjbg(cvjfg)
-                cvjfg:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-                    local vjfjvf = cvjfg.AbsoluteSize.X 
-                    if vjfjvf > tab.AbsoluteSize.X then
-                        tab.Size = UDim2.fromOffset(vjfjvf, tab.Size.Y.Offset)
-                    end
-                end)
-            end
-            kbbkgbjgjbg(element_holder)
-            kbbkgbjgjbg(bar)
-        end
-        do
-            local ckkdfj = Instance.new("UISizeConstraint")
-            local function k()
-                local y = gui.AbsoluteSize.Y
-                ckkdfj.MaxSize = Vector2.new(math.huge, y - y * .02 - 40)
-            end
-            gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(k)
-            k()
-            ckkdfj.Parent = element_holder
+            icon:Destroy()
+            tab_name_label.Position = UDim2.fromOffset(5,0)
         end
         tab.Size = UDim2.fromOffset(300, 25)
+        element_holder.Size = UDim2.new(0, 300, element_holder.Size.Y.Scale, element_holder.Size.Y.Offset)
+        tab_name_label.Text = name
+        do
+            local y = bar.AbsoluteSize.X 
+            if y > tab.AbsoluteSize.X then
+                y += 30
+                tab.Size = UDim2.fromOffset(y, tab.Size.Y.Offset)
+                element_holder.Size = UDim2.new(0, y, element_holder.Size.Y.Scale, element_holder.Size.Y.Offset)
+            end
+            element_holder:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+                local vjfjvf = element_holder.AbsoluteSize.X
+                if vjfjvf > tab.AbsoluteSize.X then
+                    tab.Size = UDim2.fromOffset(vjfjvf, tab.Size.Y.Offset)
+                else
+                    if y > vjfjvf then
+                        tab.Size = UDim2.fromOffset(y, tab.Size.Y.Offset)
+                    else
+                        tab.Size = UDim2.fromOffset(vjfjvf, tab.Size.Y.Offset)
+                    end
+                end
+            end)
+        end
+        do
+            local list_layout = element_holder.UIListLayout
+            local padding = element_holder.UIPadding.PaddingTop.Offset * 2 + 25
+            local max = gui.AbsoluteSize.Y * .8 - 40
+            list_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                local y = padding + list_layout.AbsoluteContentSize.Y
+                y = (y > max and max) or y
+                if y ~= tab.AbsoluteSize.Y then
+                    tab.Size = UDim2.fromOffset(tab.Size.X.Offset, y)
+                end
+            end)
+            gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+                max = gui.AbsoluteSize.Y * .8 - 40
+                if tab.AbsoluteSize.Y > max then
+                    tab.Size = UDim2.fromOffset(tab.Size.X.Offset, max)
+                end
+            end)
+        end
         close_button.MouseButton1Click:Connect(function()
             element_holder.Visible = not element_holder.Visible
         end)
-        tab_name_label.Text = name
+        tab.Parent = main
         return {
             Label = function (content)
                 local label = label_template:Clone()
@@ -160,7 +177,7 @@ return function(name, default_keybind)
                 dropdown.Label.Text = name
                 local option_buttons = {}
                 local y_size = 50
-                local open = false
+                local open = true
                 local function update()
                     value_label.Text = table.concat(start_options, ", ")
                     y_size = list.AbsoluteSize.Y + 50
@@ -169,7 +186,7 @@ return function(name, default_keybind)
                     end
                     attempt_callback(callback, start_options)
                 end
-                box.MouseButton1Click:Connect(function()
+                local open_close = function()
                     open = not open
                     if open then
                         dropdown.Size = UDim2.new(dropdown.Size.X, UDim.new(0, y_size))
@@ -179,7 +196,9 @@ return function(name, default_keybind)
                         arrow.Rotation = 0
                     end
                     list.Visible = open
-                end)
+                end
+                box.MouseButton1Click:Connect(open_close)
+                open_close()
                 local function add_option(option)
                     if option_buttons[option] then return end
                     local button = dropdown_button_template:Clone(); wait()
@@ -197,6 +216,7 @@ return function(name, default_keybind)
                             update()
                         end
                     end)
+                    button.Parent = list
                 end
                 local function remove_option(option)
                     local button = option_buttons[option]
@@ -220,6 +240,7 @@ return function(name, default_keybind)
                     end
                 end
                 update()
+                dropdown.Parent = element_holder
                 return {
                 AddOption = add_option, RemoveOption = remove_option, 
                 Refresh = function(options, selected_options)
@@ -277,7 +298,7 @@ return function(name, default_keybind)
                             end
                         end
                     end
-                    keybind.HoverBegan:Connect(function()
+                    keybind.MouseEnter:Connect(function()
                         hovering = true
                     end)
                     keybind.MouseButton1Click:Connect(function()
@@ -286,7 +307,7 @@ return function(name, default_keybind)
                             label.Text = "..."
                         end
                     end)
-                    keybind.HoverEnded:Connect(function()
+                    keybind.MouseLeave:Connect(function()
                         hovering = false
                         if binding then
                             binding = false
@@ -343,10 +364,10 @@ return function(name, default_keybind)
                     local color_picker = color_picker_box_template:Clone() ; local panel = color_picker_panel:Clone() ; wait()
                     local rgb_hex_frame = panel.RGBHEX
                     local rgb_textboxex = rgb_hex_frame.RGB
-                    local r_textbox = rgb_textboxex.R
-                    local g_textbox = rgb_textboxex.G
-                    local b_textbox = rgb_textboxex.B
-                    local hex_textbox = rgb_hex_frame.Hex
+                    local r_textbox = rgb_textboxex.R.TextBox
+                    local g_textbox = rgb_textboxex.G.TextBox
+                    local b_textbox = rgb_textboxex.B.TextBox
+                    local hex_textbox = rgb_hex_frame.Hex.TextBox
                     local hue_slider = panel.H
                     local saturation_value_slider = panel.SV
                     local s_v_slider_circle = saturation_value_slider.Circle
@@ -356,7 +377,7 @@ return function(name, default_keybind)
                     local hex = start_color:ToHex()
                     local function hex_set()
                         hex = start_color:ToHex()
-                        hex_textbox.Text = hex
+                        hex_textbox.Text = "#" .. hex
                     end
                     local function rgb_set()
                         r, g, b = math.floor(start_color.R * 255), math.floor(start_color.G * 255), math.floor(start_color.B * 255)
@@ -364,11 +385,12 @@ return function(name, default_keybind)
                     end
                     local saturation_frame = saturation_value_slider.Saturation
                     local function hs_color_set()
-                        saturation_frame.BackgroundColor3 = Color3.fromHSV(h, 0, 1)
+                        print(h)
+                        saturation_frame.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
                     end
                     local function hsv_set()
-                        local h, s, v = start_color:ToHSV()
-                        s_v_slider_circle.Position = UDim2.fromScale(s, v)
+                        h, s, v = start_color:ToHSV()
+                        s_v_slider_circle.Position = UDim2.fromScale(s, 1 - v)
                         h_slider_pointer.Position = UDim2.fromScale(0, 1 - h)
                         hs_color_set()
                     end
@@ -377,7 +399,6 @@ return function(name, default_keybind)
                             start_color = Color3.fromHex(hex)
                             rgb_set()
                             hsv_set()
-                            hs_color_set()
                         end,
                         ["RGB"] = function()
                             start_color = Color3.fromRGB(r, g , b)
@@ -447,24 +468,21 @@ return function(name, default_keybind)
                     end)
                     hex_textbox.FocusLost:Connect(function()
                         local input = hex_textbox.Text
-                        local len = input:len()
-                        if len == 7 and input:sub(1,1) == "#" then
-                            input = tonumber(input:sub(2, -1), 16)
-                        elseif len == 6 then    
-                            input = tonumber(input, 16)
-                        else
-                            input = nil
+                        if input:len() == 7 and input:sub(1,1) == "#" then
+                            input = input:sub(2, -1)
                         end
-                        if input ~= nil then
-                            input = math.clamp(input, 0, 0xffffff)
-                            if input ~= hex then
-                                hex = input
-                                hex_textbox.Text = "#" .. string.format("%x", hex)
+                        local nummed = tonumber(input, 16)
+                        if nummed ~= nil then
+                            nummed = math.clamp(nummed, 0, 0xffffff)
+                            nummed = string.format("%x", nummed)
+                            if nummed ~= hex then
+                                hex = nummed
+                                hex_textbox.Text = "#" .. hex
                                 set("Hex")  
                                 return
                             end
                         end
-                        hex_textbox.Text = "#" .. string.format("%x", hex)
+                        hex_textbox.Text = "#" .. hex
                     end)
                     do
                         local con
@@ -472,12 +490,16 @@ return function(name, default_keybind)
                         hue_slider.MouseButton1Down:Connect(function()
                             if con == nil then
                                 con = runservice.RenderStepped:Connect(function()
-                                    local c = math.clamp((uis:GetMouseLocation().Y - hue_slider.AbsolutePosition.Y) / p, 0, 1)
+                                    local c = math.clamp((uis:GetMouseLocation().Y - 36 - hue_slider.AbsolutePosition.Y) / p, 0, 1)
                                     local sdf = 1 - c
                                     if sdf ~= h then
                                         h = sdf
                                         h_slider_pointer.Position = UDim2.fromScale(0, c)
-                                        set("H")
+                                        if v == 0 or s == 0 then
+                                            setter["H"]()
+                                        else
+                                            set("H")
+                                        end
                                     end
                                 end)
                             end
@@ -491,44 +513,55 @@ return function(name, default_keybind)
                     end
                     do
                         local con
-                        local s = saturation_value_slider.AbsoluteSize
                         saturation_value_slider.MouseButton1Down:Connect(function()
                             if con == nil then
                                 con = runservice.RenderStepped:Connect(function()
                                     local m = uis:GetMouseLocation()
-                                    local objspac = m - saturation_value_slider.AbsolutePosition
-                                    local p_s, p_v = math.clamp(objspac.X / s.X, 0, 1), math.clamp(objspac.X / s.X, 0, 1)
-                                    local kys, now = 1 - p_s, 1 - p_v
+                                    local x_diff = m.X - saturation_value_slider.AbsolutePosition.X
+                                    local y_diff = m.Y - saturation_value_slider.AbsolutePosition.Y - 36
+                                    local p_s = math.clamp(x_diff / 190, 0, 1)
+                                    local p_v = math.clamp(y_diff / 190, 0, 1)
+                                    local kys, now = p_s, 1 - p_v
+                                    bypass = v == 0 and now == 0
                                     local k = kys ~= s
-                                    local y = now ~= v
                                     if k then
                                         s = kys
                                         s_v_slider_circle.Position = UDim2.fromScale(p_s, s_v_slider_circle.Position.Y.Scale)
                                     end
-                                    if y then
-                                        v = now
-                                        s_v_slider_circle.Position = UDim2.fromScale(s_v_slider_circle.Position.X.Scale, p_v)
-                                    end
-                                    if k or y then
-                                        set("SV")
+                                    if not bypass then
+                                        local y = now ~= v
+                                        if y then
+                                            v = now
+                                            s_v_slider_circle.Position = UDim2.fromScale(s_v_slider_circle.Position.X.Scale, p_v)
+                                        end
+                                        if (k or y) then
+                                            set("SV")
+                                        end
                                     end
                                 end)
                             end
                         end)
-                        hue_slider.InputEnded:Connect(function(input)
+                        saturation_value_slider.InputEnded:Connect(function(input)
                             if input.UserInputType == Enum.UserInputType.MouseButton1 and con then
                                 con:Disconnect()
                                 con = nil
                             end
                         end)
                     end
+                    local open_or_nigger = false
                     color_picker.MouseButton1Click:Connect(function()
-                        local x  = uis:GetMouseLocation()
-                        panel.Position = UDim2.fromOffset(x.X, x.Y + 36)
-                        panel.Visible = true
-                    end)
-                    panel.HoverEnded:Connect(function()
-                        panel.Visible = false
+                        if panel.Visible then
+                            panel.Visible = false
+                        else
+                            local xy  = uis:GetMouseLocation()
+                            if xy.X < gui.AbsoluteSize.X / 2 then
+                                panel.AnchorPoint = Vector2.new(0, 0)
+                            else
+                                panel.AnchorPoint = Vector2.new(1, 0)
+                            end
+                            panel.Position = UDim2.fromOffset(xy.X, xy.Y + 36)
+                            panel.Visible = true
+                        end
                     end)
                     setter["All"]()
                     color_picker.Parent = multi_element
@@ -561,3 +594,31 @@ return function(name, default_keybind)
         end
     }
 end
+
+local ui = create_window("hgey", Enum.KeyCode.Q)
+local t = ui.Tab("Selam!")
+local m_element = t.MultiElement()
+m_element.Label("Cum"); m_element.ColorPicker(Color3.new(1, 0.392156, 0.392156), function(v)
+    print("your cum color is:", v)
+end)
+m_element.Input("My Cum", function(v)
+    warn(v)
+end)
+local function f()
+    t.Button("gh", f)
+end
+f()
+t.Button("sdıoqwıdjqwıjdqwıdaskdlwqodqwokdqwokdowqkdopqwkdas",
+function()
+    print("sadsa")
+end)
+t.Label("adklsakdwkqdkwqjdkasdqwkdqwokdqowdkoqwkdoqwkdopqwkdoqwkdopqwdkwopdkqwokdqwkdopqwkdopqwkdpoqwkdopwkqodqwkdqwodkqwopdkqwopdkopqwdkopqwkdopwqdkqwodkqwopkd")
+t.Dropdown("Cum Pointer", {"Red", "Pink"}, {"Red", "Pink", "Purple", "Green"}, function(v)
+    print(v)
+end, 2, 3)
+t.Slider("Penis Size", 15, 1, 30, 1, "cm", function(v)
+    if v < 15 then
+        print("haha micro penis!!!!")
+    end
+end)
+ui.CreateUISettings()
